@@ -1,0 +1,1338 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件实物 · artifact-toolbar</title>
+<!--
+  组件文件 = 头部规范 JSON + 可运行实物。
+  复制规则：仅复制 [复制区] 标记内的根节点（data-component="artifact-toolbar"）、CSS、JS；
+  依赖组件（deps_css/deps_js）随本组件一并复制；
+  演示外壳（demo-*）仅供本页目检，禁止进入交付物。
+-->
+<script type="application/json" data-component-spec>
+{
+  "id": "artifact-toolbar",
+  "title": "产物工具栏（文件名 + 元素选择 + 编辑/预览切换 + 外部打开 + 更多 + 文件树开关）",
+  "region": "artifact",
+  "anatomy": [
+    "root:div.ds-atbar[data-component=artifact-toolbar][data-tab=empty|artifact|launcher][data-kind=web|file][data-mode=preview|edit][data-artifact-id]（h44，底 1px divider）",
+    "name:span.ds-atbar__name（14 medium 单行省略；empty/launcher 态隐藏）",
+    "spacer:span.ds-atbar__spacer",
+    "pick:button.ds-icon-btn.ds-apick[aria-pressed]（i-pointer 18，仅 web·preview 出现，模式钮左侧；仅按压占位 AP-X8）",
+    "mode:button.ds-amode（h30 描边胶囊 radius-button：preview→i-code+编辑，edit→i-play+预览；empty/launcher 隐藏）",
+    "external:button.ds-icon-btn[disabled][aria-disabled=true]（i-external-link 16，禁占位 URL/target=_blank，不可聚焦）",
+    "more:button.ds-icon-btn（i-more-horizontal 18，DSPopoverMenu：下载/重命名占位项）",
+    "tree:button.ds-icon-btn[aria-pressed]（i-list-tree 18，文件树开关，切换后焦点自留）"
+  ],
+  "variants": [
+    "artifact/web/preview（元素选择可见）",
+    "artifact/web/edit（钮显预览）",
+    "artifact/file/preview（无元素选择）",
+    "empty/launcher（文件名与模式钮隐藏）"
+  ],
+  "states": [
+    "picker-pressed",
+    "tree-pressed",
+    "external-disabled"
+  ],
+  "tokens": [
+    "--ds-space-1",
+    "--ds-space-2",
+    "--ds-space-3",
+    "--ds-divider",
+    "--ds-border",
+    "--ds-radius-button",
+    "--ds-surface",
+    "--ds-hover-fill",
+    "--ds-active-fill",
+    "--ds-text-primary",
+    "--ds-text-secondary",
+    "--ds-text-tertiary",
+    "--ds-text-quaternary",
+    "--ds-fs-compact",
+    "--ds-t-fast",
+    "--ds-ease-standard"
+  ],
+  "slots": [
+    "__ARTIFACT_NAME__"
+  ],
+  "deps_css": [
+    "icon-button",
+    "popover-menu",
+    "button"
+  ],
+  "deps_js": [
+    "popover-menu"
+  ],
+  "interaction": "DSArtifactToolbar.forRoot(root)→{setTab,setKind,setMode,setName,setArtifact({id,name,kind,mode}),setTreeOpen(b),isPickerPressed}（幂等）。模式钮为受控组件：点击仅在 document 派发 artifact:mode:change {id,kind,mode:下一态}，不自行改态，由 artifact-panel 回写 setMode/setKind。元素选择钮仅翻转 aria-pressed 灰阶按压态（AP-X8）。☲ 点击翻转自身 aria-pressed 并在 document 派发 filetree:toggle {open}，焦点不离开按钮。··· 调 DSPopoverMenu.open（下载/重命名占位，选中仅关闭）。外部打开恒禁用。",
+  "contract_refs": [
+    "AP-6",
+    "AP-7",
+    "AP-17",
+    "AP-18",
+    "AP-19",
+    "AP-X6",
+    "AP-X8"
+  ],
+  "forbidden": [
+    "外部打开指向占位 URL 或 target=_blank",
+    "元素选择做成浮动圆形钮",
+    "模式钮点击后自行改态（必须走事件回写）",
+    "工具栏出现 ☰ 菜单钮"
+  ]
+}
+</script>
+<style>
+/*
+ * AI 原生原型设计 — 设计令牌（CSS 变量）
+ * 由 tokens/tokens.json 生成，请勿手工维护本文件；修改令牌请改 tokens.json。
+ * 组件只允许引用 var(--ds-*)，禁止裸值。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 文字 */
+  --ds-text-primary: #1F1F1F;
+  --ds-text-secondary: #595959;
+  --ds-text-tertiary: #787878;
+  --ds-text-quaternary: #B3B3B3;
+  --ds-on-primary: #FFFFFF;
+
+  /* 表面 */
+  --ds-surface: #FFFFFF;
+  --ds-surface-muted: #F7F7F7;
+  --ds-surface-raised: #FFFFFF;
+  --ds-surface-strong: #F0F0F0;
+
+  /* 结构 */
+  --ds-border: #E5E5E5;
+  --ds-border-strong: #D4D4D4;
+  --ds-divider: #EBEBEB;
+
+  /* 交互中性态（灰阶，不是蓝） */
+  --ds-hover-fill: rgba(0, 0, 0, 0.04);
+  --ds-active-fill: rgba(0, 0, 0, 0.08);
+  --ds-scrim: rgba(0, 0, 0, 0.45);
+
+  /* 语义色 */
+  --ds-color-danger: #DC2626;
+  --ds-on-danger: #FFFFFF;
+  --ds-color-positive: #16A34A;
+  --ds-color-warning: #B45309;
+
+  /* 强调蓝：仅数据可视化与真实语义 */
+  --ds-color-accent: #2563EB;
+  --ds-on-accent: #FFFFFF;
+
+  /* 图表系列 */
+  --ds-chart-1: #2563EB;
+  --ds-chart-2: #DC2626;
+  --ds-chart-3: #16A34A;
+  --ds-chart-4: #7C3AED;
+  --ds-chart-5: #8C8C8C;
+
+  /* 间距阶 4/8/12/16/20/24/32 */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 32px;
+
+  /* 圆角阶 */
+  --ds-radius-small: 4px;
+  --ds-radius-chip: 6px;
+  --ds-radius-button: 8px;
+  --ds-radius-input: 10px;
+  --ds-radius-panel: 12px;
+  --ds-radius-large: 16px;
+  --ds-radius-full: 9999px;
+
+  /* 动效 */
+  --ds-t-micro: 80ms;
+  --ds-t-fast: 120ms;
+  --ds-t-normal: 200ms;
+  --ds-t-slow: 300ms;
+  --ds-t-spin: 1s;
+  --ds-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ds-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 字体 */
+  --ds-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --ds-font-serif: Georgia, "Songti SC", "SimSun", serif;
+
+  /* 排版 */
+  --ds-fs-caption: 12px;
+  --ds-lh-caption: 18px;
+  --ds-fs-compact: 14px;
+  --ds-lh-compact: 22px;
+  --ds-fs-body: 16px;
+  --ds-lh-body: 24px;
+  --ds-fs-title: 17px;
+  --ds-lh-title: 26px;
+  --ds-fs-page: 20px;
+  --ds-lh-page: 28px;
+  --ds-fs-display: 32px;
+  --ds-lh-display: 1.2;
+  --ds-weight-regular: 400;
+  --ds-weight-medium: 500;
+
+  /* 阴影与焦点环 */
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --ds-focus-ring: 0 0 0 2px rgba(31, 31, 31, 0.35);
+
+  /* 壳层几何 */
+  --ds-left-width: 260px;
+  --ds-left-min: 240px;
+  --ds-left-max: 320px;
+  --ds-right-width: 480px;
+  --ds-right-min: 320px;
+  --ds-right-max: 720px;
+  --ds-center-min: 360px;
+  --ds-touch-target: 44px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ds-text-primary: #F5F5F5;
+  --ds-text-secondary: #B8B8B8;
+  --ds-text-tertiary: #8C8C8C;
+  --ds-text-quaternary: #595959;
+  --ds-on-primary: #1A1A1A;
+
+  --ds-surface: #1A1A1A;
+  --ds-surface-muted: #222222;
+  --ds-surface-raised: #242424;
+  --ds-surface-strong: #2E2E2E;
+
+  --ds-border: rgba(255, 255, 255, 0.12);
+  --ds-border-strong: rgba(255, 255, 255, 0.20);
+  --ds-divider: rgba(255, 255, 255, 0.08);
+
+  --ds-hover-fill: rgba(255, 255, 255, 0.06);
+  --ds-active-fill: rgba(255, 255, 255, 0.10);
+  --ds-scrim: rgba(0, 0, 0, 0.60);
+
+  --ds-color-danger: #F26D6D;
+  --ds-on-danger: #1A1A1A;
+  --ds-color-positive: #4CC38A;
+  --ds-color-warning: #F5B544;
+
+  --ds-color-accent: #60A5FA;
+  --ds-on-accent: #0B1B33;
+
+  --ds-chart-1: #60A5FA;
+  --ds-chart-2: #F87171;
+  --ds-chart-3: #4ADE80;
+  --ds-chart-4: #A78BFA;
+  --ds-chart-5: #8C8C8C;
+
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4);
+  --ds-focus-ring: 0 0 0 2px rgba(245, 245, 245, 0.45);
+}
+
+/* 盒模型统一 border-box：几何 token 表达含边框的完整盒 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 页面基色单点定义：只有 body 可以设置页面背景；组件内部不再设置基色 */
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-regular);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 本地字体重置：控件继承 sans，数字使用 tabular-nums */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+svg text {
+  font-family: var(--ds-font-sans);
+}
+
+.ds-number,
+[class*="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 图标统一渲染：1.8px 线性、currentColor、round；外层 svg 必须带 viewBox="0 0 24 24"，
+   尺寸由其 width/height 属性控制（16/18/20/24），否则 <use> 内 symbol 会按 24px 原尺寸溢出被裁 */
+.ds-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* 原生控件保持中性，不用浏览器默认蓝 */
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"],
+progress {
+  accent-color: var(--ds-text-primary);
+}
+
+/* 统一焦点环：深色，不用蓝；box-shadow 自动跟随元素自身圆角，不在此覆盖圆角 */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* 尊重减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== [复制区] 依赖组件 CSS：button（随本组件一并复制） ===== */
+/* button —— 基础按钮：颜色强调只用深色，灰阶承担交互态 */
+[data-component="button"] {
+  /* 组件自身无包裹样式；.ds-btn 为复制后使用的根类 */
+}
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--ds-space-4);
+  margin: 0;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background-color: var(--ds-surface-raised);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    border-color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-btn:hover {
+  background-color: var(--ds-surface-strong);
+  border-color: var(--ds-border-strong);
+}
+
+.ds-btn:active {
+  background-color: var(--ds-surface-strong);
+}
+
+.ds-btn .ds-icon {
+  flex: none;
+}
+
+/* primary：深色实底；hover/active 用主题感知的中性叠加层（浅=压黑，深=提白） */
+.ds-btn--primary {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--primary:hover {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--primary:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* ghost：无底无框，仅 hover 显露灰底 */
+.ds-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.ds-btn--ghost:hover {
+  background-color: var(--ds-hover-fill);
+  border-color: transparent;
+}
+
+.ds-btn--ghost:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* danger：危险实底，仅用于删除等破坏性主动作 */
+.ds-btn--danger {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  color: var(--ds-on-danger);
+}
+
+.ds-btn--danger:hover {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--danger:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* 尺寸 */
+.ds-btn--sm {
+  height: 28px;
+  padding: 0 var(--ds-space-3);
+  font-size: var(--ds-fs-caption);
+  border-radius: var(--ds-radius-chip);
+}
+
+/* 禁用：disabled 属性驱动，键盘不可达、不派发 click */
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background-image: none;
+}
+
+.ds-btn--primary:disabled,
+.ds-btn--danger:disabled {
+  background-color: var(--ds-text-quaternary);
+  border-color: var(--ds-text-quaternary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--ghost:disabled {
+  background-color: transparent;
+}
+
+.ds-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+/* ===== [复制区] 依赖组件 CSS：icon-button（随本组件一并复制） ===== */
+/* icon-button —— 视觉盒 24/32，命中区恒 44px（::before 向四周外扩，不占布局） */
+.ds-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background-color: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  flex: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+/* hidden 属性必须生效：本基元 display:inline-flex（作者样式）会压过 UA 的 [hidden]{display:none}，
+   不显式补回会导致"隐藏"按钮仍渲染（如壳层右栏互斥展收钮） */
+.ds-icon-btn[hidden] {
+  display: none;
+}
+
+/* 命中区外扩到触控下限：absolute 居中、不改变布局与视觉盒 */
+.ds-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: var(--ds-touch-target);
+  min-height: var(--ds-touch-target);
+  margin: auto;
+}
+
+.ds-icon-btn:hover {
+  background-color: var(--ds-hover-fill);
+  color: var(--ds-text-primary);
+}
+
+.ds-icon-btn:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* 选中/开关态：灰阶，不用彩色 */
+.ds-icon-btn.is-active,
+.ds-icon-btn[aria-pressed="true"] {
+  background-color: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+
+/* 置于填充区域内时的描边浅底变体 */
+.ds-icon-btn--subtle {
+  background-color: var(--ds-surface-muted);
+}
+
+.ds-icon-btn--subtle:hover {
+  background-color: var(--ds-surface-strong);
+}
+
+/* 小尺寸视觉盒（命中区仍 44）；圆角与 md 同档：规则映射 icon buttons 统一 8px */
+.ds-icon-btn--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-button);
+}
+
+.ds-icon-btn:disabled,
+.ds-icon-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+  background-color: transparent;
+  color: var(--ds-text-quaternary);
+}
+
+.ds-icon-btn .ds-icon {
+  flex: none;
+}
+
+/* ===== [复制区] 依赖组件 CSS：popover-menu（随本组件一并复制） ===== */
+/* popover-menu —— position:fixed 由 JS 定位；不写在组件内的流中 */
+.ds-popover {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  min-width: 176px;
+  max-width: 320px;
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background-color: var(--ds-surface-raised);
+  box-shadow: var(--ds-shadow-raised);
+}
+
+.ds-popover[hidden] {
+  display: none;
+}
+
+.ds-popover__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-chip);
+  background-color: transparent;
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-regular);
+  line-height: 1;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-popover__item:hover,
+.ds-popover__item.is-focused {
+  background-color: var(--ds-active-fill);
+}
+
+.ds-popover__item[aria-disabled="true"] {
+  color: var(--ds-text-quaternary);
+  cursor: not-allowed;
+  background-color: transparent;
+}
+
+/* 左图标列固定 18，无图标也对齐；右 check 同列宽 */
+.ds-popover__icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--ds-text-secondary);
+}
+
+.ds-popover__label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-popover__shortcut {
+  flex: none;
+  margin-left: var(--ds-space-4);
+  color: var(--ds-text-quaternary);
+  font-size: var(--ds-fs-caption);
+}
+
+.ds-popover__check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: var(--ds-space-2);
+  color: var(--ds-text-primary);
+}
+
+.ds-popover__item:not(.is-checked) .ds-popover__check {
+  visibility: hidden;
+}
+
+/* 危险项：图标与文字同为 danger，hover 用 danger 的浅色混合底 */
+.ds-popover__item--danger,
+.ds-popover__item--danger .ds-popover__icon {
+  color: var(--ds-color-danger);
+}
+
+.ds-popover__item--danger:hover,
+.ds-popover__item--danger.is-focused {
+  background-color: color-mix(in srgb, var(--ds-color-danger) 10%, transparent);
+}
+
+.ds-popover__separator {
+  height: 1px;
+  margin: var(--ds-space-1) calc(var(--ds-space-1) + var(--ds-space-1));
+  background-color: var(--ds-divider);
+}
+
+/* 单选项的描述行（model-switcher 复用）：双行结构 */
+.ds-popover__item--two-line {
+  height: auto;
+  min-height: 40px;
+  padding-top: var(--ds-space-2);
+  padding-bottom: var(--ds-space-2);
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.ds-popover__item--two-line .ds-popover__texts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.ds-popover__desc {
+  color: var(--ds-text-tertiary);
+  font-size: var(--ds-fs-caption);
+  font-weight: var(--ds-weight-regular);
+}
+
+.ds-popover__item--danger .ds-popover__desc {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* ===== [复制区] 组件 CSS 开始：artifact-toolbar ===== */
+/* artifact-toolbar —— AP-6 工具栏：h44，文件名 ｜ 弹簧 ｜ 元素选择/编辑预览 ↗ ··· ☲ */
+.ds-atbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 44px;
+  padding: 0 var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-divider);
+}
+.ds-atbar__name {
+  min-width: 0;
+  flex: 0 1 auto;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-atbar__name[hidden] {
+  display: none;
+}
+.ds-atbar__spacer {
+  flex: 1 1 auto;
+}
+
+/* AP-18 编辑/预览切换钮：h30 描边胶囊（图标 16 + 14px 文字）；
+   preview 态=「编辑」i-code，edit 态=「预览」i-play */
+.ds-amode {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 30px;
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  line-height: 1;
+  cursor: pointer;
+}
+.ds-amode:hover {
+  background: var(--ds-hover-fill);
+}
+.ds-amode:active {
+  background: var(--ds-active-fill);
+}
+.ds-amode .ds-icon {
+  flex: none;
+  color: var(--ds-text-primary);
+}
+.ds-amode[hidden] {
+  display: none;
+}
+/* ===== [复制区] 组件 CSS 结束：artifact-toolbar ===== */
+
+/* —— 演示外壳（仅供组件实物页，禁止复制进交付物）—— */
+.demo-topbar { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:12px;
+  height:48px; padding:0 16px; background:var(--ds-surface); border-bottom:1px solid var(--ds-divider); }
+.demo-topbar__title { font-size:var(--ds-fs-compact); font-weight:var(--ds-weight-medium); }
+.demo-topbar__tag { font-size:var(--ds-fs-caption); color:var(--ds-text-tertiary); }
+.demo-topbar__spacer { flex:1; }
+.demo-main { padding:24px; }
+.demo-section { margin-bottom:24px; }
+.demo-section > h3 { font-size:var(--ds-fs-caption); font-weight:var(--ds-weight-medium);
+  color:var(--ds-text-tertiary); margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; }
+.demo-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.demo-row + .demo-row { margin-top:12px; }
+.demo-canvas { border:1px dashed var(--ds-border-strong); border-radius:var(--ds-radius-panel); padding:16px; }
+
+/* —— artifact-toolbar 实物页演示外壳（禁止复制进交付物）—— */
+.demo-sep {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--ds-divider);
+}
+.demo-note {
+  margin: 0 0 var(--ds-space-2);
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-tertiary);
+}
+
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <defs>
+    <!-- 渲染约定：引用侧 <svg class="ds-icon"><use href="#i-xxx"/></svg>；
+         .ds-icon 在 tokens.css 统一定义 fill:none / stroke:currentColor / 1.8px / round。
+         实心元素在自身标记 fill="currentColor" stroke="none"。 -->
+
+    <!-- 通用操作 -->
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-x"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-circle"><circle cx="12" cy="12" r="9"/></symbol>
+    <symbol id="i-pause"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-stop"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></symbol>
+
+    <!-- 方向/展收 -->
+    <symbol id="i-chevron-right"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-left"><path d="m15 18-6-6 6-6"/></symbol>
+
+    <!-- 菜单/更多/导航 -->
+    <symbol id="i-menu"><path d="M4 12h16M4 6h16M4 18h16"/></symbol>
+    <symbol id="i-more-horizontal"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-list-tree"><path d="M4 6h.01M4 12h.01M4 18h.01"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
+    <symbol id="i-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-alert-triangle"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 2.52h16.94a2 2 0 0 0 1.71-2.52L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+
+    <!-- 会话/项目 -->
+    <symbol id="i-message-plus"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M12 8v6M9 11h6"/></symbol>
+    <symbol id="i-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-open"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-folder-plus"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13h6"/></symbol>
+    <symbol id="i-folder-input"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></symbol>
+    <symbol id="i-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z"/></symbol>
+
+    <!-- 行操作 -->
+    <symbol id="i-pencil"><path d="M21.17 6.81a1 1 0 0 0-3.98-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.63l4.35-1.32a2 2 0 0 0 .83-.5Z"/></symbol>
+    <symbol id="i-trash"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-copy"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-refresh"><path d="M3 12a9 9 0 0 1 15.74-6.26L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.74 6.26L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-share"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></symbol>
+    <symbol id="i-git-branch"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-thumb-up"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></symbol>
+    <symbol id="i-thumb-down"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></symbol>
+
+    <!-- 输入区 -->
+    <symbol id="i-send"><path d="M14.54 21.69a.5.5 0 0 0 .93-.03l6.5-19a.5.5 0 0 0-.63-.63l-19 6.5a.5.5 0 0 0-.03.93l7.93 3.18a2 2 0 0 1 1.11 1.11Z"/><path d="m21.85 2.15-10.94 10.94"/></symbol>
+    <symbol id="i-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-at-sign"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></symbol>
+    <symbol id="i-mic"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></symbol>
+
+    <!-- composer 加号收纳菜单（CP-25）：全部 24 网格手绘线性几何，保持 1.8 描边一致 -->
+    <symbol id="i-hash"><path d="M4 9h16M4 15h16M10 4 8.5 20M16 4l-1.5 16"/></symbol>
+    <symbol id="i-bolt"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12Z"/></symbol>
+    <symbol id="i-terminal"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="m7.5 9 3 3-3 3M13 15.5h4"/></symbol>
+    <symbol id="i-grid"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-blocks"><rect x="3.5" y="8" width="5" height="12" rx="1.2"/><rect x="9.5" y="4.5" width="5" height="15.5" rx="1.2"/><rect x="15.5" y="9.5" width="5" height="10.5" rx="1.2"/></symbol>
+    <symbol id="i-sliders"><path d="M3.5 7h6M14.5 7h6M3.5 12h2.5M12 12h8.5M3.5 17h10M18.5 17h2"/><circle cx="12.5" cy="7" r="2.2"/><circle cx="9" cy="12" r="2.2"/><circle cx="16" cy="17" r="2.2"/></symbol>
+
+    <!-- 知识库/智能体/用户/模型 -->
+    <symbol id="i-book-open"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/></symbol>
+    <symbol id="i-bot"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2"/><path d="M9 13v2M15 13v2"/></symbol>
+    <symbol id="i-user"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-sparkles"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0Z"/><path d="M20 3v4M22 5h-4M4 17v2M5 18H3"/></symbol>
+
+    <!-- 文件类型 -->
+    <symbol id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></symbol>
+    <symbol id="i-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 16.5h6"/></symbol>
+    <symbol id="i-file-md"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8.5 17.5v-3.4l1.8 2.1 1.8-2.1v3.4"/></symbol>
+    <symbol id="i-file-sheet"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 12.5h6M9 15.5h6M11 11.5v6M14 11.5v6"/></symbol>
+    <symbol id="i-file-pdf"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9.2 17.2v-4h1.6a1.4 1.4 0 0 1 0 2.8H9.2"/></symbol>
+    <symbol id="i-image"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+
+    <!-- 产物面板：编辑/预览、代码文件、云盘、元素选择 -->
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></symbol>
+    <symbol id="i-file-code" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m10 13-2 2 2 2M14 13l2 2-2 2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 5 12 7-12 7Z"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><rect x="4" y="5" width="10" height="9" rx="1.5"/><path d="M19 13.8V19h-5.2"/><path d="m12.5 12.5 6.5 6.5"/></symbol>
+
+    <!-- 壳层面板 -->
+    <symbol id="i-panel-left"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-panel-right"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  </defs>
+</svg>
+
+<div class="demo-topbar">
+  <span class="demo-topbar__title">chat-workbench / artifact-toolbar</span>
+  <span class="demo-topbar__tag">产物工具栏（文件名 + 元素选择 + 编辑/预览切换 + 外部打开 + 更多 + 文件树开关）</span>
+  <span class="demo-topbar__spacer"></span>
+  <button class="ds-btn ds-btn--ghost" id="demo-theme" type="button">切换浅/深主题</button>
+</div>
+<main class="demo-main">
+<!-- ===== [复制区] 组件 HTML 开始：artifact-toolbar ===== -->
+<div data-demo-section="artifact-toolbar">
+  <div class="demo-section">
+    <h3>web · preview：文件名 + 元素选择（按压态占位）+「编辑」+ 外部打开（禁用）+ 更多 + ☲</h3>
+    <div class="demo-row">
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-tb-tab="artifact">tab=artifact</button>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-tb-tab="empty">tab=empty</button>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-tb-tab="launcher">tab=launcher</button>
+      <span class="demo-sep" aria-hidden="true"></span>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-tb-kind="web">kind=web</button>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-tb-kind="file">kind=file</button>
+    </div>
+    <p class="demo-note">点「编辑」派发 artifact:mode:change（本页 demo.js 回写新态）；点 ☲ 派发 filetree:toggle。</p>
+    <div class="demo-canvas" style="padding:0">
+      <div class="ds-atbar" id="tb-1" data-component="artifact-toolbar" data-tab="artifact" data-kind="web" data-mode="preview" data-artifact-id="demo-web">
+        <span class="ds-atbar__name">__ARTIFACT_NAME__</span>
+        <span class="ds-atbar__spacer" aria-hidden="true"></span>
+        <button type="button" class="ds-icon-btn ds-apick" data-action="pick-element" aria-label="选择页面元素" aria-pressed="false">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-pointer"></use></svg>
+        </button>
+        <button type="button" class="ds-amode" data-action="mode-toggle" aria-label="切换到代码编辑视图">
+          <svg class="ds-icon ds-amode__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-code"></use></svg>
+          <span class="ds-amode__label">编辑</span>
+        </button>
+        <button type="button" class="ds-icon-btn" disabled aria-disabled="true" aria-label="外部打开（原型无真实地址，不可用）">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="more" aria-haspopup="menu" aria-label="更多操作">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-more-horizontal"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="tree-toggle" aria-pressed="false" aria-label="切换文件树">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-list-tree"></use></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-section">
+    <h3>edit 态：模式钮显「预览」i-play；元素选择钮隐藏</h3>
+    <div class="demo-canvas" style="padding:0">
+      <div class="ds-atbar" data-component="artifact-toolbar" data-tab="artifact" data-kind="web" data-mode="edit" data-artifact-id="demo-web-edit">
+        <span class="ds-atbar__name">__ARTIFACT_NAME__</span>
+        <span class="ds-atbar__spacer" aria-hidden="true"></span>
+        <button type="button" class="ds-icon-btn ds-apick" data-action="pick-element" aria-label="选择页面元素" aria-pressed="false" hidden>
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-pointer"></use></svg>
+        </button>
+        <button type="button" class="ds-amode" data-action="mode-toggle" aria-label="切换到预览视图">
+          <svg class="ds-icon ds-amode__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-play"></use></svg>
+          <span class="ds-amode__label">预览</span>
+        </button>
+        <button type="button" class="ds-icon-btn" disabled aria-disabled="true" aria-label="外部打开（原型无真实地址，不可用）">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="more" aria-haspopup="menu" aria-label="更多操作">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-more-horizontal"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="tree-toggle" aria-pressed="false" aria-label="切换文件树">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-list-tree"></use></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-section">
+    <h3>file · preview：无元素选择钮（仅 web·preview 出现）</h3>
+    <div class="demo-canvas" style="padding:0">
+      <div class="ds-atbar" data-component="artifact-toolbar" data-tab="artifact" data-kind="file" data-mode="preview" data-artifact-id="demo-file-static">
+        <span class="ds-atbar__name">__ARTIFACT_NAME__</span>
+        <span class="ds-atbar__spacer" aria-hidden="true"></span>
+        <button type="button" class="ds-icon-btn ds-apick" data-action="pick-element" aria-label="选择页面元素" aria-pressed="false" hidden>
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-pointer"></use></svg>
+        </button>
+        <button type="button" class="ds-amode" data-action="mode-toggle" aria-label="切换到代码编辑视图">
+          <svg class="ds-icon ds-amode__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-code"></use></svg>
+          <span class="ds-amode__label">编辑</span>
+        </button>
+        <button type="button" class="ds-icon-btn" disabled aria-disabled="true" aria-label="外部打开（原型无真实地址，不可用）">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="more" aria-haspopup="menu" aria-label="更多操作">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-more-horizontal"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="tree-toggle" aria-pressed="false" aria-label="切换文件树">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-list-tree"></use></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-section">
+    <h3>empty 态：文件名与编辑/预览钮、元素选择钮全隐；↗ 保持禁用</h3>
+    <div class="demo-canvas" style="padding:0">
+      <div class="ds-atbar" data-component="artifact-toolbar" data-tab="empty" data-kind="file" data-mode="preview">
+        <span class="ds-atbar__name" hidden>__ARTIFACT_NAME__</span>
+        <span class="ds-atbar__spacer" aria-hidden="true"></span>
+        <button type="button" class="ds-icon-btn ds-apick" data-action="pick-element" aria-label="选择页面元素" aria-pressed="false" hidden>
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-pointer"></use></svg>
+        </button>
+        <button type="button" class="ds-amode" data-action="mode-toggle" aria-label="切换到代码编辑视图" hidden>
+          <svg class="ds-icon ds-amode__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-code"></use></svg>
+          <span class="ds-amode__label">编辑</span>
+        </button>
+        <button type="button" class="ds-icon-btn" disabled aria-disabled="true" aria-label="外部打开（原型无真实地址，不可用）">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="more" aria-haspopup="menu" aria-label="更多操作">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-more-horizontal"></use></svg>
+        </button>
+        <button type="button" class="ds-icon-btn" data-action="tree-toggle" aria-pressed="false" aria-label="切换文件树">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-list-tree"></use></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ===== [复制区] 组件 HTML 结束：artifact-toolbar ===== -->
+</main>
+<script>
+/* ===== [复制区] 依赖组件 JS：popover-menu（随本组件一并复制） ===== */
+/* popover-menu
+ * 用法：
+ *   DSPopoverMenu.open({
+ *     anchor: triggerEl,
+ *     align: 'start' | 'end',
+ *     items: [
+ *       { icon: 'pencil', label: '重命名', action: 'rename', shortcut: 'F2' },
+ *       { icon: 'check-only?' },
+ *       { divider: true },
+ *       { icon: 'trash', label: '删除', action: 'delete', danger: true, disabled: false },
+ *       { label: '两行项', desc: '能力描述', checked: true, twoLine: true }
+ *     ],
+ *     onSelect(action, item, index) {}
+ *   }) -> close()
+ * 行为：焦点进首项 / ↑↓ Home End / Enter / Esc 回焦 / 外部点击、祖先滚动、resize 关闭。
+ */
+(function (global) {
+  'use strict';
+
+  var current = null;
+
+  function iconSvg(name, size) {
+    if (!name) {
+      return '<span class="ds-popover__icon" aria-hidden="true"></span>';
+    }
+    return (
+      '<svg class="ds-popover__icon ds-icon" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+      '<use href="#i-' + name + '"></use></svg>'
+    );
+  }
+
+  function buildItem(item, index) {
+    if (item.divider) {
+      return '<div class="ds-popover__separator" role="separator"></div>';
+    }
+    var cls = ['ds-popover__item'];
+    if (item.danger) cls.push('ds-popover__item--danger');
+    if (item.checked) cls.push('is-checked');
+    if (item.twoLine || item.desc) cls.push('ds-popover__item--two-line');
+
+    var labelInner = item.desc
+      ? '<span class="ds-popover__texts"><span class="ds-popover__label">' + item.label +
+        '</span><span class="ds-popover__desc">' + item.desc + '</span></span>'
+      : '<span class="ds-popover__label">' + item.label + '</span>';
+
+    var check =
+      '<svg class="ds-popover__check ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+      '<use href="#i-check"></use></svg>';
+
+    return (
+      '<button type="button" role="menuitem" class="' + cls.join(' ') + '" data-index="' + index + '"' +
+      (item.disabled ? ' aria-disabled="true"' : '') + ' tabindex="-1">' +
+      iconSvg(item.icon || '', 18) +
+      labelInner +
+      (item.shortcut ? '<span class="ds-popover__shortcut">' + item.shortcut + '</span>' : '') +
+      check +
+      '</button>'
+    );
+  }
+
+  function open(opts) {
+    if (current) current.close();
+
+    var anchor = opts.anchor;
+    var items = opts.items || [];
+    var align = opts.align === 'end' ? 'end' : 'start';
+
+    var root = document.createElement('div');
+    root.setAttribute('data-component', 'popover-menu');
+    root.className = 'ds-popover';
+    root.setAttribute('role', 'menu');
+    root.innerHTML = items.map(buildItem).join('');
+    document.body.appendChild(root);
+
+    var enabledItems = Array.prototype.slice
+      .call(root.querySelectorAll('.ds-popover__item'))
+      .filter(function (el) { return !el.getAttribute('aria-disabled'); });
+
+    var focusIndex = -1;
+
+    function focusAt(i) {
+      if (!enabledItems.length) return;
+      focusIndex = (i + enabledItems.length) % enabledItems.length;
+      enabledItems[focusIndex].focus();
+      enabledItems.forEach(function (el, idx) { el.classList.toggle('is-focused', idx === focusIndex); });
+    }
+
+    function position() {
+      var rect = anchor.getBoundingClientRect();
+      var margin = 8;
+      var w = root.offsetWidth;
+      var h = root.offsetHeight;
+      var left = align === 'end' ? rect.right - w : rect.left;
+      var top = rect.bottom + 4;
+      if (left + w > window.innerWidth - margin) left = window.innerWidth - w - margin;
+      if (left < margin) left = margin;
+      if (top + h > window.innerHeight - margin) {
+        var above = rect.top - h - 4;
+        if (above >= margin) top = above;
+        else top = Math.max(margin, window.innerHeight - h - margin);
+      }
+      root.style.left = left + 'px';
+      root.style.top = top + 'px';
+    }
+
+    function close(restoreFocus) {
+      if (current !== state) return;
+      current = null;
+      anchor.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeydown, true);
+      window.removeEventListener('resize', close0, true);
+      window.removeEventListener('scroll', close0, true);
+      if (root.parentNode) root.parentNode.removeChild(root);
+      if (restoreFocus !== false) anchor.focus();
+    }
+    var close0 = function () { close(); };
+    var state = { anchor: anchor, close: close };
+    current = state;
+
+    function onPointerDown(e) {
+      if (root.contains(e.target) || anchor.contains(e.target) || e.target === anchor) return;
+      close();
+    }
+
+    function onKeydown(e) {
+      switch (e.key) {
+        case 'ArrowDown': e.preventDefault(); focusAt(focusIndex < 0 ? 0 : focusIndex + 1); break;
+        case 'ArrowUp': e.preventDefault(); focusAt(focusIndex < 0 ? enabledItems.length - 1 : focusIndex - 1); break;
+        case 'Home': e.preventDefault(); focusAt(0); break;
+        case 'End': e.preventDefault(); focusAt(enabledItems.length - 1); break;
+        case 'Enter':
+        case ' ':
+          e.preventDefault();
+          if (focusIndex >= 0) activate(enabledItems[focusIndex]);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          break;
+        case 'Tab':
+          close();
+          break;
+      }
+    }
+
+    function activate(btn) {
+      if (!btn || btn.getAttribute('aria-disabled')) return;
+      var index = Number(btn.getAttribute('data-index'));
+      var item = items[index];
+      close();
+      if (typeof opts.onSelect === 'function') opts.onSelect(item.action || item.label, item, index);
+    }
+
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest('.ds-popover__item');
+      if (btn) activate(btn);
+    });
+    root.addEventListener('mouseover', function (e) {
+      var btn = e.target.closest('.ds-popover__item');
+      if (btn && !btn.getAttribute('aria-disabled')) {
+        enabledItems.forEach(function (el) { el.classList.remove('is-focused'); });
+        focusIndex = enabledItems.indexOf(btn);
+        btn.classList.add('is-focused');
+      }
+    });
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeydown, true);
+    window.addEventListener('resize', close0, true);
+    window.addEventListener('scroll', close0, true);
+    anchor.setAttribute('aria-expanded', 'true');
+    position();
+    focusAt(0);
+
+    return close;
+  }
+
+  function isOpen(anchor) {
+    return !!(current && (anchor ? current.anchor === anchor : true));
+  }
+
+  function closeCurrent() {
+    if (current) current.close();
+  }
+
+  global.DSPopoverMenu = { open: open, isOpen: isOpen, closeCurrent: closeCurrent };
+})(window);
+
+/* ===== [复制区] 组件 JS 开始：artifact-toolbar ===== */
+/* artifact-toolbar
+ * 用法：DSArtifactToolbar.forRoot(bar) ->
+ *   { setTab(t), setKind(k), setMode(m), setName(n),
+ *     setArtifact({id,name,kind,mode}), setTreeOpen(b), isPickerPressed() }
+ * 受控约定：模式钮点击只派发 artifact:mode:change {id,kind,mode:下一态}，
+ * 不自行改态，由 artifact-panel 收事件后回写 setKind/setMode。
+ */
+(function () {
+  'use strict';
+
+  var MORE_ITEMS = [
+    { label: '下载', action: 'download' },
+    { divider: true },
+    { icon: 'pencil', label: '重命名', action: 'rename' }
+  ];
+
+  function forRoot(root) {
+    if (!root || root.__dsAtbarApi) return root && root.__dsAtbarApi;
+
+    var nameEl = root.querySelector('.ds-atbar__name');
+    var picker = root.querySelector('.ds-apick');
+    var modeBtn = root.querySelector('.ds-amode');
+    var modeIcon = modeBtn ? modeBtn.querySelector('.ds-amode__icon use') : null;
+    var modeLabel = modeBtn ? modeBtn.querySelector('.ds-amode__label') : null;
+    var moreBtn = root.querySelector('[data-action="more"]');
+    var treeBtn = root.querySelector('[data-action="tree-toggle"]');
+
+    function render() {
+      var tab = root.dataset.tab === 'artifact' || root.dataset.tab === 'launcher'
+        ? root.dataset.tab
+        : 'empty';
+      var kind = root.dataset.kind === 'web' ? 'web' : 'file';
+      var mode = root.dataset.mode === 'edit' ? 'edit' : 'preview';
+      var isArtifact = tab === 'artifact';
+
+      if (nameEl) nameEl.hidden = !isArtifact;
+      if (modeBtn) modeBtn.hidden = !isArtifact;
+      if (picker) picker.hidden = !(isArtifact && kind === 'web' && mode === 'preview');
+
+      if (modeBtn) {
+        var toEdit = mode === 'preview';
+        if (modeIcon) modeIcon.setAttribute('href', toEdit ? '#i-code' : '#i-play');
+        if (modeLabel) modeLabel.textContent = toEdit ? '编辑' : '预览';
+        modeBtn.setAttribute('aria-label', toEdit ? '切换到代码编辑视图' : '切换到预览视图');
+      }
+    }
+
+    if (modeBtn) {
+      modeBtn.addEventListener('click', function () {
+        var kind = root.dataset.kind === 'web' ? 'web' : 'file';
+        var mode = root.dataset.mode === 'edit' ? 'edit' : 'preview';
+        var next = mode === 'preview' ? 'edit' : 'preview';
+        document.dispatchEvent(new CustomEvent('artifact:mode:change', {
+          detail: { id: root.dataset.artifactId || '', kind: kind, mode: next }
+        }));
+      });
+    }
+
+    /* AP-19/AP-X8 元素选择：仅灰阶按压占位，不做真实选取 */
+    if (picker) {
+      picker.addEventListener('click', function () {
+        var on = picker.getAttribute('aria-pressed') === 'true';
+        picker.setAttribute('aria-pressed', String(!on));
+      });
+    }
+
+    /* ☲：翻转按压态并派发 filetree:toggle {open}；焦点保持在按钮自身（AP-17） */
+    if (treeBtn) {
+      treeBtn.addEventListener('click', function () {
+        var open = treeBtn.getAttribute('aria-pressed') !== 'true';
+        treeBtn.setAttribute('aria-pressed', String(open));
+        document.dispatchEvent(new CustomEvent('filetree:toggle', {
+          detail: { open: open }
+        }));
+      });
+    }
+
+    /* ··· 更多：下载/重命名占位项，选中仅关闭，无真实动作 */
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function () {
+        if (!window.DSPopoverMenu) return;
+        window.DSPopoverMenu.open({
+          anchor: moreBtn,
+          align: 'end',
+          items: MORE_ITEMS,
+          onSelect: function () { /* P 阶段前占位 */ }
+        });
+      });
+    }
+
+    var api = {
+      setTab: function (tab) {
+        if (tab !== 'empty' && tab !== 'artifact' && tab !== 'launcher') return;
+        root.dataset.tab = tab;
+        render();
+      },
+      setKind: function (kind) {
+        root.dataset.kind = kind === 'web' ? 'web' : 'file';
+        render();
+      },
+      setMode: function (mode) {
+        root.dataset.mode = mode === 'edit' ? 'edit' : 'preview';
+        render();
+      },
+      setName: function (name) {
+        if (nameEl) nameEl.textContent = name;
+      },
+      setArtifact: function (a) {
+        a = a || {};
+        root.dataset.tab = 'artifact';
+        if (a.id != null) root.dataset.artifactId = String(a.id);
+        if (a.name != null && nameEl) nameEl.textContent = a.name;
+        if (a.kind) root.dataset.kind = a.kind === 'web' ? 'web' : 'file';
+        if (a.mode) root.dataset.mode = a.mode === 'edit' ? 'edit' : 'preview';
+        render();
+      },
+      setTreeOpen: function (open) {
+        if (treeBtn) treeBtn.setAttribute('aria-pressed', String(!!open));
+      },
+      isPickerPressed: function () {
+        return !!picker && picker.getAttribute('aria-pressed') === 'true';
+      }
+    };
+
+    root.__dsAtbarApi = api;
+    render();
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="artifact-toolbar"]'),
+      forRoot
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSArtifactToolbar = { forRoot: forRoot };
+})();
+/* ===== [复制区] 组件 JS 结束：artifact-toolbar ===== */
+</script>
+<script>
+/* —— 演示外壳脚本（禁止复制进交付物）—— */
+document.getElementById('demo-theme').addEventListener('click', () => {
+  const el = document.documentElement;
+  el.dataset.theme = el.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+
+/* —— artifact-toolbar 实物页演示脚本（禁止复制进交付物）—— */
+(function () {
+  'use strict';
+
+  var tb = window.DSArtifactToolbar &&
+    window.DSArtifactToolbar.forRoot(document.getElementById('tb-1'));
+  if (!tb) return;
+
+  /* 模拟 artifact-panel 的事件回写：模式切换事件 -> 回写工具栏新态 */
+  document.addEventListener('artifact:mode:change', function (e) {
+    if (e.detail.id !== 'demo-web' && e.detail.id !== 'demo-file') return;
+    tb.setKind(e.detail.kind);
+    tb.setMode(e.detail.mode);
+  });
+  document.addEventListener('filetree:toggle', function (e) {
+    tb.setTreeOpen(e.detail.open);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tb-tab]'), function (btn) {
+    btn.addEventListener('click', function () {
+      tb.setTab(btn.getAttribute('data-tb-tab'));
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tb-kind]'), function (btn) {
+    btn.addEventListener('click', function () {
+      tb.setKind(btn.getAttribute('data-tb-kind'));
+    });
+  });
+})();
+
+</script>
+</body>
+</html>

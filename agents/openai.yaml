@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI 原生原型设计"
+  short_description: "按 AI 原生设计规范生成单 HTML 高保真原型（当前模块：AI 对话工作台）"
+  default_prompt: "使用 $ai-native-prototype-design，根据我的需求生成符合 AI 原生设计规范的可交互单 HTML 高保真原型（三栏 AI 对话工作台，浅色/深色双主题）。"

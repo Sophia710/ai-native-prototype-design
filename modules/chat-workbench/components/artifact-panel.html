@@ -1,0 +1,2655 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件实物 · artifact-panel</title>
+<!--
+  组件文件 = 头部规范 JSON + 可运行实物。
+  复制规则：仅复制 [复制区] 标记内的根节点（data-component="artifact-panel"）、CSS、JS；
+  依赖组件（deps_css/deps_js）随本组件一并复制；
+  演示外壳（demo-*）仅供本页目检，禁止进入交付物。
+-->
+<script type="application/json" data-component-spec>
+{
+  "id": "artifact-panel",
+  "title": "产物面板主控（页签状态机 + 工具栏/预览/文件树/启动页组装）",
+  "region": "artifact",
+  "anatomy": [
+    "root:section.ds-arti[data-component=artifact-panel][data-tab=empty|artifact|launcher]（纵向 flex：页签行/工具栏/内容行/启动页）",
+    "tabs:.ds-atabs[role=tablist]：动态 .ds-atab[role=tab][aria-selected][tabindex]（类型图标16+名称省略+关闭 x）+ spacer ＋ 新建标签页 sm icon-btn",
+    "toolbar:内嵌 [data-component=artifact-toolbar]",
+    "content:.ds-acontent（flex 行）：.ds-aempty 空态 + [data-component=document-preview] + [data-component=file-tree]（内嵌 flex 子区）",
+    "empty:.ds-aempty（i-file 24 + __ARTIFACT_EMPTY_TEXT__ secondary 居中，无按钮堆）",
+    "launcher:.ds-alaunch（≤480 垂直居中，5 个 h48 radius-full 胶囊行：搜索框/项目文件夹/云盘/新建文件/终端，全占位 AP-X6）"
+  ],
+  "variants": [
+    "empty",
+    "artifact/web|file · preview|edit（多页签）",
+    "launcher（新标签页）"
+  ],
+  "states": [
+    "empty",
+    "artifact-active",
+    "launcher-active",
+    "tab-hover",
+    "close-x-reveal"
+  ],
+  "tokens": [
+    "--ds-space-1",
+    "--ds-space-2",
+    "--ds-space-3",
+    "--ds-space-4",
+    "--ds-space-5",
+    "--ds-divider",
+    "--ds-border",
+    "--ds-radius-small",
+    "--ds-radius-button",
+    "--ds-radius-full",
+    "--ds-surface",
+    "--ds-surface-muted",
+    "--ds-text-primary",
+    "--ds-text-secondary",
+    "--ds-text-tertiary",
+    "--ds-text-quaternary",
+    "--ds-hover-fill",
+    "--ds-active-fill",
+    "--ds-fs-caption",
+    "--ds-fs-compact",
+    "--ds-fs-body",
+    "--ds-lh-compact"
+  ],
+  "slots": [
+    "__ARTIFACT_EMPTY_TEXT__",
+    "__ARTIFACT_NAME__",
+    "__WORKSPACE_ID__",
+    "__FILE_TREE_FOLDER_1_NAME__",
+    "__FILE_TREE_FILE_1_NAME__",
+    "__FILE_TREE_FILE_2_NAME__",
+    "__FILE_TREE_FILE_3_NAME__",
+    "__ARTIFACT_WEB_TITLE__",
+    "__ARTIFACT_WEB_SUBTITLE__",
+    "__ARTIFACT_WEB_HERO_LABEL__",
+    "__ARTIFACT_WEB_HERO__",
+    "__ARTIFACT_WEB_SECTION_1__",
+    "__ARTIFACT_WEB_LEAD_1__",
+    "__ARTIFACT_WEB_SECTION_2__",
+    "__ARTIFACT_WEB_LEAD_2__",
+    "__ARTIFACT_WEB_CARD_A__",
+    "__ARTIFACT_WEB_CARD_B__",
+    "__ARTIFACT_WEB_CARD_C__",
+    "__ARTIFACT_WEB_CARD_D__",
+    "__ARTIFACT_WEB_CARD_E__",
+    "__ARTIFACT_WEB_CARD_F__",
+    "__ARTIFACT_WEB_CARD_G__",
+    "__ARTIFACT_WEB_ITEM__",
+    "__ARTIFACT_WEB_VALUE__",
+    "__ARTIFACT_TITLE__",
+    "__ARTIFACT_SUMMARY__",
+    "__ARTIFACT_SECTION_1__",
+    "__ARTIFACT_CONTENT_1__",
+    "__ARTIFACT_SECTION_2__",
+    "__ARTIFACT_CONTENT_2__"
+  ],
+  "deps_css": [
+    "icon-button",
+    "button",
+    "popover-menu",
+    "artifact-toolbar",
+    "file-tree",
+    "document-preview"
+  ],
+  "deps_js": [
+    "popover-menu",
+    "artifact-toolbar",
+    "file-tree",
+    "document-preview"
+  ],
+  "interaction": "DSArtifactPanel.forRoot(section)→{open({id,name,type}),closeTab(id),newTab(),setState(s),getState()}（幂等）。document 事件：artifact:open {id,name,type}→同 id 聚焦否则末尾插页签（kind：html/htm/web→web，其余 file；各页签独立 mode，默认 preview）；artifact:mode:change→更新当前页签 mode 并同步工具栏/预览；filetree:toggle {open}→转写 file-tree API（持久化由树负责）。自派事件：artifact:tab:close {id}、artifact:tab:new {}。关最后页签不关右栏（AP-X5），回空态；关当前焦点移左邻、全关焦到＋（AP-5/15）；roving tabindex：←→/Home/End/Delete；＋ 插入单例「新标签页」页签（再点仅聚焦），关闭后回原页签原模式或空态（AP-20）。右栏打开由 shell 监听同一 artifact:open 完成（WS-14），组件不重复派发。",
+  "contract_refs": [
+    "AP-1",
+    "AP-2",
+    "AP-3",
+    "AP-4",
+    "AP-5",
+    "AP-6",
+    "AP-7",
+    "AP-8",
+    "AP-14",
+    "AP-15",
+    "AP-17",
+    "AP-18",
+    "AP-19",
+    "AP-20",
+    "AP-X1",
+    "AP-X2",
+    "AP-X5",
+    "AP-X6"
+  ],
+  "forbidden": [
+    "关最后页签连带关闭右栏",
+    "启动页入口有真实导航/文件/终端动作",
+    "重复插入多个新标签页",
+    "文件树绝对定位悬浮"
+  ]
+}
+</script>
+<style>
+/*
+ * AI 原生原型设计 — 设计令牌（CSS 变量）
+ * 由 tokens/tokens.json 生成，请勿手工维护本文件；修改令牌请改 tokens.json。
+ * 组件只允许引用 var(--ds-*)，禁止裸值。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 文字 */
+  --ds-text-primary: #1F1F1F;
+  --ds-text-secondary: #595959;
+  --ds-text-tertiary: #787878;
+  --ds-text-quaternary: #B3B3B3;
+  --ds-on-primary: #FFFFFF;
+
+  /* 表面 */
+  --ds-surface: #FFFFFF;
+  --ds-surface-muted: #F7F7F7;
+  --ds-surface-raised: #FFFFFF;
+  --ds-surface-strong: #F0F0F0;
+
+  /* 结构 */
+  --ds-border: #E5E5E5;
+  --ds-border-strong: #D4D4D4;
+  --ds-divider: #EBEBEB;
+
+  /* 交互中性态（灰阶，不是蓝） */
+  --ds-hover-fill: rgba(0, 0, 0, 0.04);
+  --ds-active-fill: rgba(0, 0, 0, 0.08);
+  --ds-scrim: rgba(0, 0, 0, 0.45);
+
+  /* 语义色 */
+  --ds-color-danger: #DC2626;
+  --ds-on-danger: #FFFFFF;
+  --ds-color-positive: #16A34A;
+  --ds-color-warning: #B45309;
+
+  /* 强调蓝：仅数据可视化与真实语义 */
+  --ds-color-accent: #2563EB;
+  --ds-on-accent: #FFFFFF;
+
+  /* 图表系列 */
+  --ds-chart-1: #2563EB;
+  --ds-chart-2: #DC2626;
+  --ds-chart-3: #16A34A;
+  --ds-chart-4: #7C3AED;
+  --ds-chart-5: #8C8C8C;
+
+  /* 间距阶 4/8/12/16/20/24/32 */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 32px;
+
+  /* 圆角阶 */
+  --ds-radius-small: 4px;
+  --ds-radius-chip: 6px;
+  --ds-radius-button: 8px;
+  --ds-radius-input: 10px;
+  --ds-radius-panel: 12px;
+  --ds-radius-large: 16px;
+  --ds-radius-full: 9999px;
+
+  /* 动效 */
+  --ds-t-micro: 80ms;
+  --ds-t-fast: 120ms;
+  --ds-t-normal: 200ms;
+  --ds-t-slow: 300ms;
+  --ds-t-spin: 1s;
+  --ds-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ds-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 字体 */
+  --ds-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --ds-font-serif: Georgia, "Songti SC", "SimSun", serif;
+
+  /* 排版 */
+  --ds-fs-caption: 12px;
+  --ds-lh-caption: 18px;
+  --ds-fs-compact: 14px;
+  --ds-lh-compact: 22px;
+  --ds-fs-body: 16px;
+  --ds-lh-body: 24px;
+  --ds-fs-title: 17px;
+  --ds-lh-title: 26px;
+  --ds-fs-page: 20px;
+  --ds-lh-page: 28px;
+  --ds-fs-display: 32px;
+  --ds-lh-display: 1.2;
+  --ds-weight-regular: 400;
+  --ds-weight-medium: 500;
+
+  /* 阴影与焦点环 */
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --ds-focus-ring: 0 0 0 2px rgba(31, 31, 31, 0.35);
+
+  /* 壳层几何 */
+  --ds-left-width: 260px;
+  --ds-left-min: 240px;
+  --ds-left-max: 320px;
+  --ds-right-width: 480px;
+  --ds-right-min: 320px;
+  --ds-right-max: 720px;
+  --ds-center-min: 360px;
+  --ds-touch-target: 44px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ds-text-primary: #F5F5F5;
+  --ds-text-secondary: #B8B8B8;
+  --ds-text-tertiary: #8C8C8C;
+  --ds-text-quaternary: #595959;
+  --ds-on-primary: #1A1A1A;
+
+  --ds-surface: #1A1A1A;
+  --ds-surface-muted: #222222;
+  --ds-surface-raised: #242424;
+  --ds-surface-strong: #2E2E2E;
+
+  --ds-border: rgba(255, 255, 255, 0.12);
+  --ds-border-strong: rgba(255, 255, 255, 0.20);
+  --ds-divider: rgba(255, 255, 255, 0.08);
+
+  --ds-hover-fill: rgba(255, 255, 255, 0.06);
+  --ds-active-fill: rgba(255, 255, 255, 0.10);
+  --ds-scrim: rgba(0, 0, 0, 0.60);
+
+  --ds-color-danger: #F26D6D;
+  --ds-on-danger: #1A1A1A;
+  --ds-color-positive: #4CC38A;
+  --ds-color-warning: #F5B544;
+
+  --ds-color-accent: #60A5FA;
+  --ds-on-accent: #0B1B33;
+
+  --ds-chart-1: #60A5FA;
+  --ds-chart-2: #F87171;
+  --ds-chart-3: #4ADE80;
+  --ds-chart-4: #A78BFA;
+  --ds-chart-5: #8C8C8C;
+
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4);
+  --ds-focus-ring: 0 0 0 2px rgba(245, 245, 245, 0.45);
+}
+
+/* 盒模型统一 border-box：几何 token 表达含边框的完整盒 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 页面基色单点定义：只有 body 可以设置页面背景；组件内部不再设置基色 */
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-regular);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 本地字体重置：控件继承 sans，数字使用 tabular-nums */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+svg text {
+  font-family: var(--ds-font-sans);
+}
+
+.ds-number,
+[class*="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 图标统一渲染：1.8px 线性、currentColor、round；外层 svg 必须带 viewBox="0 0 24 24"，
+   尺寸由其 width/height 属性控制（16/18/20/24），否则 <use> 内 symbol 会按 24px 原尺寸溢出被裁 */
+.ds-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* 原生控件保持中性，不用浏览器默认蓝 */
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"],
+progress {
+  accent-color: var(--ds-text-primary);
+}
+
+/* 统一焦点环：深色，不用蓝；box-shadow 自动跟随元素自身圆角，不在此覆盖圆角 */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* 尊重减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== [复制区] 依赖组件 CSS：button（随本组件一并复制） ===== */
+/* button —— 基础按钮：颜色强调只用深色，灰阶承担交互态 */
+[data-component="button"] {
+  /* 组件自身无包裹样式；.ds-btn 为复制后使用的根类 */
+}
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--ds-space-4);
+  margin: 0;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background-color: var(--ds-surface-raised);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    border-color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-btn:hover {
+  background-color: var(--ds-surface-strong);
+  border-color: var(--ds-border-strong);
+}
+
+.ds-btn:active {
+  background-color: var(--ds-surface-strong);
+}
+
+.ds-btn .ds-icon {
+  flex: none;
+}
+
+/* primary：深色实底；hover/active 用主题感知的中性叠加层（浅=压黑，深=提白） */
+.ds-btn--primary {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--primary:hover {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--primary:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* ghost：无底无框，仅 hover 显露灰底 */
+.ds-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.ds-btn--ghost:hover {
+  background-color: var(--ds-hover-fill);
+  border-color: transparent;
+}
+
+.ds-btn--ghost:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* danger：危险实底，仅用于删除等破坏性主动作 */
+.ds-btn--danger {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  color: var(--ds-on-danger);
+}
+
+.ds-btn--danger:hover {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--danger:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* 尺寸 */
+.ds-btn--sm {
+  height: 28px;
+  padding: 0 var(--ds-space-3);
+  font-size: var(--ds-fs-caption);
+  border-radius: var(--ds-radius-chip);
+}
+
+/* 禁用：disabled 属性驱动，键盘不可达、不派发 click */
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background-image: none;
+}
+
+.ds-btn--primary:disabled,
+.ds-btn--danger:disabled {
+  background-color: var(--ds-text-quaternary);
+  border-color: var(--ds-text-quaternary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--ghost:disabled {
+  background-color: transparent;
+}
+
+.ds-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+/* ===== [复制区] 依赖组件 CSS：icon-button（随本组件一并复制） ===== */
+/* icon-button —— 视觉盒 24/32，命中区恒 44px（::before 向四周外扩，不占布局） */
+.ds-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background-color: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  flex: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+/* hidden 属性必须生效：本基元 display:inline-flex（作者样式）会压过 UA 的 [hidden]{display:none}，
+   不显式补回会导致"隐藏"按钮仍渲染（如壳层右栏互斥展收钮） */
+.ds-icon-btn[hidden] {
+  display: none;
+}
+
+/* 命中区外扩到触控下限：absolute 居中、不改变布局与视觉盒 */
+.ds-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: var(--ds-touch-target);
+  min-height: var(--ds-touch-target);
+  margin: auto;
+}
+
+.ds-icon-btn:hover {
+  background-color: var(--ds-hover-fill);
+  color: var(--ds-text-primary);
+}
+
+.ds-icon-btn:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* 选中/开关态：灰阶，不用彩色 */
+.ds-icon-btn.is-active,
+.ds-icon-btn[aria-pressed="true"] {
+  background-color: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+
+/* 置于填充区域内时的描边浅底变体 */
+.ds-icon-btn--subtle {
+  background-color: var(--ds-surface-muted);
+}
+
+.ds-icon-btn--subtle:hover {
+  background-color: var(--ds-surface-strong);
+}
+
+/* 小尺寸视觉盒（命中区仍 44）；圆角与 md 同档：规则映射 icon buttons 统一 8px */
+.ds-icon-btn--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-button);
+}
+
+.ds-icon-btn:disabled,
+.ds-icon-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+  background-color: transparent;
+  color: var(--ds-text-quaternary);
+}
+
+.ds-icon-btn .ds-icon {
+  flex: none;
+}
+
+/* ===== [复制区] 依赖组件 CSS：popover-menu（随本组件一并复制） ===== */
+/* popover-menu —— position:fixed 由 JS 定位；不写在组件内的流中 */
+.ds-popover {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  min-width: 176px;
+  max-width: 320px;
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background-color: var(--ds-surface-raised);
+  box-shadow: var(--ds-shadow-raised);
+}
+
+.ds-popover[hidden] {
+  display: none;
+}
+
+.ds-popover__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-chip);
+  background-color: transparent;
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-regular);
+  line-height: 1;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-popover__item:hover,
+.ds-popover__item.is-focused {
+  background-color: var(--ds-active-fill);
+}
+
+.ds-popover__item[aria-disabled="true"] {
+  color: var(--ds-text-quaternary);
+  cursor: not-allowed;
+  background-color: transparent;
+}
+
+/* 左图标列固定 18，无图标也对齐；右 check 同列宽 */
+.ds-popover__icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--ds-text-secondary);
+}
+
+.ds-popover__label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-popover__shortcut {
+  flex: none;
+  margin-left: var(--ds-space-4);
+  color: var(--ds-text-quaternary);
+  font-size: var(--ds-fs-caption);
+}
+
+.ds-popover__check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: var(--ds-space-2);
+  color: var(--ds-text-primary);
+}
+
+.ds-popover__item:not(.is-checked) .ds-popover__check {
+  visibility: hidden;
+}
+
+/* 危险项：图标与文字同为 danger，hover 用 danger 的浅色混合底 */
+.ds-popover__item--danger,
+.ds-popover__item--danger .ds-popover__icon {
+  color: var(--ds-color-danger);
+}
+
+.ds-popover__item--danger:hover,
+.ds-popover__item--danger.is-focused {
+  background-color: color-mix(in srgb, var(--ds-color-danger) 10%, transparent);
+}
+
+.ds-popover__separator {
+  height: 1px;
+  margin: var(--ds-space-1) calc(var(--ds-space-1) + var(--ds-space-1));
+  background-color: var(--ds-divider);
+}
+
+/* 单选项的描述行（model-switcher 复用）：双行结构 */
+.ds-popover__item--two-line {
+  height: auto;
+  min-height: 40px;
+  padding-top: var(--ds-space-2);
+  padding-bottom: var(--ds-space-2);
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.ds-popover__item--two-line .ds-popover__texts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.ds-popover__desc {
+  color: var(--ds-text-tertiary);
+  font-size: var(--ds-fs-caption);
+  font-weight: var(--ds-weight-regular);
+}
+
+.ds-popover__item--danger .ds-popover__desc {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* ===== [复制区] 依赖组件 CSS：artifact-toolbar（随本组件一并复制） ===== */
+/* artifact-toolbar —— AP-6 工具栏：h44，文件名 ｜ 弹簧 ｜ 元素选择/编辑预览 ↗ ··· ☲ */
+.ds-atbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 44px;
+  padding: 0 var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-divider);
+}
+.ds-atbar__name {
+  min-width: 0;
+  flex: 0 1 auto;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-atbar__name[hidden] {
+  display: none;
+}
+.ds-atbar__spacer {
+  flex: 1 1 auto;
+}
+
+/* AP-18 编辑/预览切换钮：h30 描边胶囊（图标 16 + 14px 文字）；
+   preview 态=「编辑」i-code，edit 态=「预览」i-play */
+.ds-amode {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 30px;
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  line-height: 1;
+  cursor: pointer;
+}
+.ds-amode:hover {
+  background: var(--ds-hover-fill);
+}
+.ds-amode:active {
+  background: var(--ds-active-fill);
+}
+.ds-amode .ds-icon {
+  flex: none;
+  color: var(--ds-text-primary);
+}
+.ds-amode[hidden] {
+  display: none;
+}
+
+/* ===== [复制区] 依赖组件 CSS：file-tree（随本组件一并复制） ===== */
+/* file-tree —— 右栏内嵌文件树：flex 子区（非第四栏浮层，AP-X1），width 单通道 0↔240 展收（AP-7） */
+.ds-atree {
+  flex: none;
+  width: 0;
+  overflow: hidden;
+  border-left: 1px solid transparent;
+  transition:
+    width var(--ds-t-normal) var(--ds-ease-standard),
+    border-color var(--ds-t-normal) var(--ds-ease-standard);
+}
+.ds-atree[data-open="true"] {
+  width: 240px;
+  border-left-color: var(--ds-divider);
+}
+.ds-atree__inner {
+  width: 240px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: var(--ds-space-2);
+}
+
+/* AP-9 工作区头：标识 caption 省略 + 搜索/更多 sm icon-btn（占位） */
+.ds-atree__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: 0 var(--ds-space-1) var(--ds-space-2);
+  font-size: var(--ds-fs-caption);
+  color: var(--ds-text-tertiary);
+}
+.ds-atree__head-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 文件夹/文件行：h32、radius-button 8、单行省略 */
+.ds-atree__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  color: var(--ds-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.ds-atree__row:hover {
+  background: var(--ds-hover-fill);
+}
+/* AP-10/AP-X4 当前文件行仅允许灰底 active-fill，禁止彩色 */
+.ds-atree__row.is-current {
+  background: var(--ds-active-fill);
+}
+.ds-atree__row--indent {
+  padding-left: calc(var(--ds-space-2) + 20px);
+}
+.ds-atree__row .ds-icon {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+.ds-atree__chev {
+  flex: none;
+  color: var(--ds-text-tertiary);
+}
+.ds-atree__label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-atree__group[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-atree {
+    transition: none;
+  }
+}
+
+/* ===== [复制区] 依赖组件 CSS：document-preview（随本组件一并复制） ===== */
+/* document-preview —— 三视图容器（web/code/doc 同一时刻仅一视图） */
+.ds-aviews {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  min-width: 0;
+}
+.ds-aviews[hidden] {
+  display: none;
+}
+.ds-aview {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+}
+.ds-aview[hidden] {
+  display: none;
+}
+.ds-aview--web {
+  position: relative;
+  background: var(--ds-surface-muted);
+}
+.ds-aview--code {
+  background: var(--ds-surface);
+}
+.ds-aview--doc {
+  padding: var(--ds-space-5) var(--ds-space-4);
+}
+
+/* AP-13 普通文件预览（doc 视图）：最大排版宽 720 居中 */
+.ds-preview {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+}
+.ds-preview__title {
+  margin: 0 0 var(--ds-space-1);
+  font-size: var(--ds-fs-title);
+  line-height: var(--ds-lh-title);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+.ds-preview__summary {
+  margin: 0 0 var(--ds-space-2);
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-secondary);
+}
+.ds-preview__h {
+  margin: var(--ds-space-2) 0 0;
+  font-size: var(--ds-fs-body);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+.ds-preview__p {
+  margin: 0;
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-secondary);
+}
+
+/* AP-X7/AP-X9 网页预览 mock：灰底画布 + 白色页面卡，黑白灰单色，纯静态 DOM */
+.ds-webpage {
+  min-width: 100%;
+  box-sizing: border-box;
+  padding: var(--ds-space-5) var(--ds-space-4);
+}
+.ds-webpage__page {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: var(--ds-space-6) var(--ds-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  background: var(--ds-surface-raised);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  box-shadow: var(--ds-shadow-raised);
+}
+.ds-webpage__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  padding-bottom: var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-text-primary);
+}
+.ds-webpage__title {
+  margin: 0;
+  font-size: var(--ds-fs-title);
+  line-height: var(--ds-lh-title);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+.ds-webpage__sub {
+  margin: 0;
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-tertiary);
+}
+.ds-webpage__hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-radius: var(--ds-radius-small);
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+.ds-webpage__hero-label {
+  font-size: var(--ds-fs-caption);
+  opacity: 0.7;
+}
+.ds-webpage__hero-text {
+  margin: 0;
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+}
+.ds-webpage__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+}
+.ds-webpage__h {
+  margin: 0;
+  padding-left: var(--ds-space-2);
+  border-left: 1px solid var(--ds-text-primary);
+  font-size: var(--ds-fs-body);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+.ds-webpage__lead {
+  margin: 0;
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-tertiary);
+}
+.ds-webgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--ds-space-2);
+}
+.ds-webgrid--3 {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+.ds-webcard {
+  overflow: hidden;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background: var(--ds-surface);
+}
+.ds-webcard__head {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  background: var(--ds-surface-strong);
+}
+.ds-webcard__title {
+  min-width: 0;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-webcard__body {
+  display: flex;
+  flex-direction: column;
+}
+.ds-webcard__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-top: 1px solid var(--ds-divider);
+}
+.ds-webcard__row:first-child {
+  border-top: none;
+}
+.ds-webcard__k {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ds-webcard__v {
+  flex: none;
+  font-size: var(--ds-fs-caption);
+  color: var(--ds-text-primary);
+  font-weight: var(--ds-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+/* AP-X9 代码编辑视图：行号列 + 等宽代码，横向随长行滚动；单色灰阶无语法着色 */
+.ds-codeview {
+  min-width: max-content;
+  font-family: var(--ds-font-mono);
+}
+.ds-codeview__row {
+  display: flex;
+  align-items: flex-start;
+}
+.ds-codeview__no {
+  flex: none;
+  box-sizing: border-box;
+  width: 48px;
+  padding: 0 var(--ds-space-3) 0 var(--ds-space-4);
+  text-align: right;
+  user-select: none;
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-text-quaternary);
+}
+.ds-codeview__tx {
+  white-space: pre;
+  padding-right: var(--ds-space-5);
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-body);
+  color: var(--ds-text-primary);
+}
+.ds-codeview__com {
+  color: var(--ds-text-tertiary);
+}
+
+/* AP-12 loading：不透明遮罩 + surface-strong 骨架块，动画允许时 shimmer 扫光 */
+.ds-aviews__loading {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: var(--ds-surface);
+  padding: var(--ds-space-5) var(--ds-space-4);
+}
+.ds-aviews__loading[hidden],
+.ds-aviews__updating[hidden] {
+  display: none;
+}
+.ds-aviews__sk {
+  max-width: 620px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+}
+.ds-aviews__sk-bar,
+.ds-aviews__sk-block {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--ds-radius-small);
+  background: var(--ds-surface-strong);
+}
+.ds-aviews__sk-bar {
+  height: 12px;
+}
+.ds-aviews__sk-bar--title {
+  height: 16px;
+  width: 40%;
+}
+.ds-aviews__sk-bar--sub {
+  width: 60%;
+}
+.ds-aviews__sk-bar--lg {
+  width: 85%;
+}
+.ds-aviews__sk-block {
+  height: 120px;
+}
+.ds-aviews__sk-bar::after,
+.ds-aviews__sk-block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ds-surface) 60%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: ds-aview-shimmer var(--ds-t-spin) var(--ds-ease-standard) infinite;
+}
+
+/* AP-12 updating：内容上盖 30% 静态蒙层（不拦截指针）+ 顶部 2px 进度条外观（唯一 2px 元素） */
+.ds-aviews__updating {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ds-surface) 30%, transparent);
+}
+.ds-aviews__upbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--ds-text-primary);
+}
+
+@keyframes ds-aview-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-aviews__sk-bar::after,
+  .ds-aviews__sk-block::after {
+    animation: none;
+  }
+}
+
+/* ===== [复制区] 组件 CSS 开始：artifact-panel ===== */
+/* artifact-panel —— 总体：页签行 → 工具栏 → 内容行（预览弹性 + 文件树内嵌 240 可关） */
+.ds-arti {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--ds-surface);
+}
+/* 面板内 [hidden] 必须压过带 display 的作者样式（如启动页 flex、视图 flex） */
+.ds-arti [hidden] {
+  display: none !important;
+}
+
+/* AP-1/AP-2 页签行：已打开产物页签左起，末尾 ＋ = 新建标签页（AP-20），底 1px divider */
+.ds-atabs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: 0 var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-divider);
+}
+.ds-atab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  box-sizing: border-box;
+  max-width: 220px;
+  height: 32px;
+  margin: var(--ds-space-1) 0;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ds-atab:hover {
+  background: var(--ds-hover-fill);
+  color: var(--ds-text-primary);
+}
+.ds-atab.is-active {
+  background: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+.ds-atab .ds-icon {
+  flex: none;
+}
+.ds-atab__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ds-fs-compact);
+}
+/* AP-2 关闭 x：20px 视觉，hover/focus-within/当前页签显露，布局不跳动 */
+.ds-atab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-right: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--ds-radius-small);
+  background: transparent;
+  color: var(--ds-text-tertiary);
+  opacity: 0;
+  cursor: pointer;
+}
+.ds-atab:hover .ds-atab__close,
+.ds-atab:focus-within .ds-atab__close,
+.ds-atab.is-active .ds-atab__close {
+  opacity: 1;
+}
+.ds-atab__close:hover {
+  background: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+.ds-atabs__spacer {
+  flex: 1 1 auto;
+}
+
+/* 内容行：空态/预览弹性 + 文件树内嵌（非第四栏，AP-X1）；启动页态整行隐藏 */
+.ds-acontent {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+.ds-arti[data-tab="launcher"] .ds-acontent {
+  display: none;
+}
+
+/* AP-14 空态：i-file 24 + 弱文案居中，无按钮堆 */
+.ds-aempty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  background: var(--ds-surface);
+}
+.ds-aempty .ds-icon {
+  color: var(--ds-text-quaternary);
+}
+.ds-aempty__text {
+  margin: 0;
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-secondary);
+}
+
+/* AP-20 新标签页启动页：垂直居中、宽 ≤480、5 个 h48 大胶囊；全部仅占位（AP-X6） */
+.ds-alaunch {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.ds-arti[data-tab="launcher"] .ds-alaunch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: var(--ds-space-5) var(--ds-space-4);
+}
+.ds-alaunch__inner {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+}
+.ds-launch-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--ds-space-5);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+button.ds-launch-row:hover {
+  background: var(--ds-hover-fill);
+}
+.ds-launch-row .ds-icon {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+.ds-launch-row__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--ds-fs-body);
+  color: var(--ds-text-primary);
+}
+.ds-launch-row__field::placeholder {
+  color: var(--ds-text-primary);
+  opacity: 1;
+}
+/* 聚焦不画灰环：外层胶囊边框常驻，输入框本身聚焦无 outline/box-shadow（同 CP-1 模式） */
+.ds-launch-row__field:focus,
+.ds-launch-row__field:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+/* ===== [复制区] 组件 CSS 结束：artifact-panel ===== */
+
+/* —— 演示外壳（仅供组件实物页，禁止复制进交付物）—— */
+.demo-topbar { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:12px;
+  height:48px; padding:0 16px; background:var(--ds-surface); border-bottom:1px solid var(--ds-divider); }
+.demo-topbar__title { font-size:var(--ds-fs-compact); font-weight:var(--ds-weight-medium); }
+.demo-topbar__tag { font-size:var(--ds-fs-caption); color:var(--ds-text-tertiary); }
+.demo-topbar__spacer { flex:1; }
+.demo-main { padding:24px; }
+.demo-section { margin-bottom:24px; }
+.demo-section > h3 { font-size:var(--ds-fs-caption); font-weight:var(--ds-weight-medium);
+  color:var(--ds-text-tertiary); margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; }
+.demo-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.demo-row + .demo-row { margin-top:12px; }
+.demo-canvas { border:1px dashed var(--ds-border-strong); border-radius:var(--ds-radius-panel); padding:16px; }
+
+/* —— artifact-panel 实物页演示外壳（禁止复制进交付物）—— */
+.demo-sep {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--ds-divider);
+}
+.demo-note {
+  margin: 0 0 var(--ds-space-2);
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-tertiary);
+}
+
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <defs>
+    <!-- 渲染约定：引用侧 <svg class="ds-icon"><use href="#i-xxx"/></svg>；
+         .ds-icon 在 tokens.css 统一定义 fill:none / stroke:currentColor / 1.8px / round。
+         实心元素在自身标记 fill="currentColor" stroke="none"。 -->
+
+    <!-- 通用操作 -->
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-x"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-circle"><circle cx="12" cy="12" r="9"/></symbol>
+    <symbol id="i-pause"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-stop"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></symbol>
+
+    <!-- 方向/展收 -->
+    <symbol id="i-chevron-right"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-left"><path d="m15 18-6-6 6-6"/></symbol>
+
+    <!-- 菜单/更多/导航 -->
+    <symbol id="i-menu"><path d="M4 12h16M4 6h16M4 18h16"/></symbol>
+    <symbol id="i-more-horizontal"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-list-tree"><path d="M4 6h.01M4 12h.01M4 18h.01"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
+    <symbol id="i-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-alert-triangle"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 2.52h16.94a2 2 0 0 0 1.71-2.52L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+
+    <!-- 会话/项目 -->
+    <symbol id="i-message-plus"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M12 8v6M9 11h6"/></symbol>
+    <symbol id="i-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-open"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-folder-plus"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13h6"/></symbol>
+    <symbol id="i-folder-input"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></symbol>
+    <symbol id="i-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z"/></symbol>
+
+    <!-- 行操作 -->
+    <symbol id="i-pencil"><path d="M21.17 6.81a1 1 0 0 0-3.98-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.63l4.35-1.32a2 2 0 0 0 .83-.5Z"/></symbol>
+    <symbol id="i-trash"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-copy"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-refresh"><path d="M3 12a9 9 0 0 1 15.74-6.26L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.74 6.26L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-share"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></symbol>
+    <symbol id="i-git-branch"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-thumb-up"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></symbol>
+    <symbol id="i-thumb-down"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></symbol>
+
+    <!-- 输入区 -->
+    <symbol id="i-send"><path d="M14.54 21.69a.5.5 0 0 0 .93-.03l6.5-19a.5.5 0 0 0-.63-.63l-19 6.5a.5.5 0 0 0-.03.93l7.93 3.18a2 2 0 0 1 1.11 1.11Z"/><path d="m21.85 2.15-10.94 10.94"/></symbol>
+    <symbol id="i-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-at-sign"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></symbol>
+    <symbol id="i-mic"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></symbol>
+
+    <!-- composer 加号收纳菜单（CP-25）：全部 24 网格手绘线性几何，保持 1.8 描边一致 -->
+    <symbol id="i-hash"><path d="M4 9h16M4 15h16M10 4 8.5 20M16 4l-1.5 16"/></symbol>
+    <symbol id="i-bolt"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12Z"/></symbol>
+    <symbol id="i-terminal"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="m7.5 9 3 3-3 3M13 15.5h4"/></symbol>
+    <symbol id="i-grid"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-blocks"><rect x="3.5" y="8" width="5" height="12" rx="1.2"/><rect x="9.5" y="4.5" width="5" height="15.5" rx="1.2"/><rect x="15.5" y="9.5" width="5" height="10.5" rx="1.2"/></symbol>
+    <symbol id="i-sliders"><path d="M3.5 7h6M14.5 7h6M3.5 12h2.5M12 12h8.5M3.5 17h10M18.5 17h2"/><circle cx="12.5" cy="7" r="2.2"/><circle cx="9" cy="12" r="2.2"/><circle cx="16" cy="17" r="2.2"/></symbol>
+
+    <!-- 知识库/智能体/用户/模型 -->
+    <symbol id="i-book-open"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/></symbol>
+    <symbol id="i-bot"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2"/><path d="M9 13v2M15 13v2"/></symbol>
+    <symbol id="i-user"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-sparkles"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0Z"/><path d="M20 3v4M22 5h-4M4 17v2M5 18H3"/></symbol>
+
+    <!-- 文件类型 -->
+    <symbol id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></symbol>
+    <symbol id="i-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 16.5h6"/></symbol>
+    <symbol id="i-file-md"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8.5 17.5v-3.4l1.8 2.1 1.8-2.1v3.4"/></symbol>
+    <symbol id="i-file-sheet"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 12.5h6M9 15.5h6M11 11.5v6M14 11.5v6"/></symbol>
+    <symbol id="i-file-pdf"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9.2 17.2v-4h1.6a1.4 1.4 0 0 1 0 2.8H9.2"/></symbol>
+    <symbol id="i-image"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+
+    <!-- 产物面板：编辑/预览、代码文件、云盘、元素选择 -->
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></symbol>
+    <symbol id="i-file-code" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m10 13-2 2 2 2M14 13l2 2-2 2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 5 12 7-12 7Z"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><rect x="4" y="5" width="10" height="9" rx="1.5"/><path d="M19 13.8V19h-5.2"/><path d="m12.5 12.5 6.5 6.5"/></symbol>
+
+    <!-- 壳层面板 -->
+    <symbol id="i-panel-left"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-panel-right"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  </defs>
+</svg>
+
+<div class="demo-topbar">
+  <span class="demo-topbar__title">chat-workbench / artifact-panel</span>
+  <span class="demo-topbar__tag">产物面板主控（页签状态机 + 工具栏/预览/文件树/启动页组装）</span>
+  <span class="demo-topbar__spacer"></span>
+  <button class="ds-btn ds-btn--ghost" id="demo-theme" type="button">切换浅/深主题</button>
+</div>
+<main class="demo-main">
+<!-- ===== [复制区] 组件 HTML 开始：artifact-panel ===== -->
+<div data-demo-section="artifact-panel">
+  <div class="demo-section">
+    <h3>完整产物面板（空态起步；按钮模拟产物卡 / 文件树的 artifact:open 事件与生成状态）</h3>
+    <div class="demo-row">
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-panel-open="html">打开网页类产物（.html）</button>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-panel-open="md">打开 Markdown 文档</button>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-panel-open="xlsx">打开表格文件</button>
+      <span class="demo-sep" aria-hidden="true"></span>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-panel-state="loading">loading</button>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-panel-state="updating">updating</button>
+      <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" data-panel-state="ready">ready</button>
+    </div>
+    <p class="demo-note">页签 ＋ 打开新标签页启动页；页签 x / Delete 关闭（最后一个不关右栏，回空态）；☲ 内嵌展收文件树；方向键 / Home / End 在页签间移动焦点。</p>
+    <div class="demo-canvas" style="width:560px;height:680px;padding:0;overflow:hidden">
+      <section class="ds-arti" data-component="artifact-panel" data-tab="empty">
+        <div class="ds-atabs" role="tablist" aria-label="产物文件页签">
+          <span class="ds-atabs__spacer" aria-hidden="true"></span>
+          <button type="button" class="ds-icon-btn ds-icon-btn--sm" data-action="tab-new" aria-label="新建标签页">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-plus"></use></svg>
+          </button>
+        </div>
+
+        <div class="ds-atbar" data-component="artifact-toolbar" data-tab="empty" data-kind="file" data-mode="preview">
+          <span class="ds-atbar__name" hidden>__ARTIFACT_NAME__</span>
+          <span class="ds-atbar__spacer" aria-hidden="true"></span>
+          <button type="button" class="ds-icon-btn ds-apick" data-action="pick-element" aria-label="选择页面元素" aria-pressed="false" hidden>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-pointer"></use></svg>
+          </button>
+          <button type="button" class="ds-amode" data-action="mode-toggle" aria-label="切换到代码编辑视图" hidden>
+            <svg class="ds-icon ds-amode__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-code"></use></svg>
+            <span class="ds-amode__label">编辑</span>
+          </button>
+          <button type="button" class="ds-icon-btn" disabled aria-disabled="true" aria-label="外部打开（原型无真实地址，不可用）">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+          </button>
+          <button type="button" class="ds-icon-btn" data-action="more" aria-haspopup="menu" aria-label="更多操作">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-more-horizontal"></use></svg>
+          </button>
+          <button type="button" class="ds-icon-btn" data-action="tree-toggle" aria-pressed="false" aria-label="切换文件树">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-list-tree"></use></svg>
+          </button>
+        </div>
+
+        <div class="ds-acontent">
+          <div class="ds-aempty">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><use href="#i-file"></use></svg>
+            <p class="ds-aempty__text">__ARTIFACT_EMPTY_TEXT__</p>
+          </div>
+
+          <div class="ds-aviews" data-component="document-preview" data-kind="file" data-mode="preview" data-state="ready" hidden>
+            <div class="ds-aview ds-aview--web" data-view="web" hidden>
+              <div class="ds-webpage">
+                <article class="ds-webpage__page">
+                  <header class="ds-webpage__head">
+                    <h1 class="ds-webpage__title">__ARTIFACT_WEB_TITLE__</h1>
+                    <p class="ds-webpage__sub">__ARTIFACT_WEB_SUBTITLE__</p>
+                  </header>
+                  <div class="ds-webpage__hero">
+                    <span class="ds-webpage__hero-label">__ARTIFACT_WEB_HERO_LABEL__</span>
+                    <p class="ds-webpage__hero-text">__ARTIFACT_WEB_HERO__</p>
+                  </div>
+                  <section class="ds-webpage__section">
+                    <h2 class="ds-webpage__h">__ARTIFACT_WEB_SECTION_1__</h2>
+                    <p class="ds-webpage__lead">__ARTIFACT_WEB_LEAD_1__</p>
+                    <div class="ds-webgrid">
+                      <article class="ds-webcard">
+                        <header class="ds-webcard__head"><span class="ds-webcard__title">__ARTIFACT_WEB_CARD_A__</span></header>
+                        <div class="ds-webcard__body">
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                        </div>
+                      </article>
+                      <article class="ds-webcard">
+                        <header class="ds-webcard__head"><span class="ds-webcard__title">__ARTIFACT_WEB_CARD_B__</span></header>
+                        <div class="ds-webcard__body">
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                        </div>
+                      </article>
+                      <article class="ds-webcard">
+                        <header class="ds-webcard__head"><span class="ds-webcard__title">__ARTIFACT_WEB_CARD_C__</span></header>
+                        <div class="ds-webcard__body">
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                        </div>
+                      </article>
+                      <article class="ds-webcard">
+                        <header class="ds-webcard__head"><span class="ds-webcard__title">__ARTIFACT_WEB_CARD_D__</span></header>
+                        <div class="ds-webcard__body">
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                        </div>
+                      </article>
+                    </div>
+                  </section>
+                  <section class="ds-webpage__section">
+                    <h2 class="ds-webpage__h">__ARTIFACT_WEB_SECTION_2__</h2>
+                    <p class="ds-webpage__lead">__ARTIFACT_WEB_LEAD_2__</p>
+                    <div class="ds-webgrid ds-webgrid--3">
+                      <article class="ds-webcard">
+                        <header class="ds-webcard__head"><span class="ds-webcard__title">__ARTIFACT_WEB_CARD_E__</span></header>
+                        <div class="ds-webcard__body">
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                        </div>
+                      </article>
+                      <article class="ds-webcard">
+                        <header class="ds-webcard__head"><span class="ds-webcard__title">__ARTIFACT_WEB_CARD_F__</span></header>
+                        <div class="ds-webcard__body">
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                        </div>
+                      </article>
+                      <article class="ds-webcard">
+                        <header class="ds-webcard__head"><span class="ds-webcard__title">__ARTIFACT_WEB_CARD_G__</span></header>
+                        <div class="ds-webcard__body">
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                          <div class="ds-webcard__row"><span class="ds-webcard__k">__ARTIFACT_WEB_ITEM__</span><span class="ds-webcard__v">__ARTIFACT_WEB_VALUE__</span></div>
+                        </div>
+                      </article>
+                    </div>
+                  </section>
+                </article>
+              </div>
+            </div>
+
+            <div class="ds-aview ds-aview--code" data-view="code" hidden>
+              <div class="ds-codeview">
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">1</span><span class="ds-codeview__tx">&lt;!DOCTYPE html&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">2</span><span class="ds-codeview__tx">&lt;html lang="zh-CN"&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">3</span><span class="ds-codeview__tx ds-codeview__com">&lt;!-- 静态占位代码：单色灰阶，无语法着色（AP-X9） --&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">4</span><span class="ds-codeview__tx">&lt;head&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">5</span><span class="ds-codeview__tx">  &lt;meta charset="UTF-8"&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">6</span><span class="ds-codeview__tx">  &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">7</span><span class="ds-codeview__tx">  &lt;title&gt;__ARTIFACT_WEB_TITLE__&lt;/title&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">8</span><span class="ds-codeview__tx">&lt;/head&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">9</span><span class="ds-codeview__tx">&lt;body&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">10</span><span class="ds-codeview__tx">  &lt;header class="page-header"&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">11</span><span class="ds-codeview__tx">    &lt;h1&gt;__ARTIFACT_WEB_TITLE__&lt;/h1&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">12</span><span class="ds-codeview__tx">  &lt;/header&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">13</span><span class="ds-codeview__tx">  &lt;main&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">14</span><span class="ds-codeview__tx">    &lt;section class="hero"&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">15</span><span class="ds-codeview__tx">      &lt;p&gt;__ARTIFACT_WEB_HERO__&lt;/p&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">16</span><span class="ds-codeview__tx">    &lt;/section&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">17</span><span class="ds-codeview__tx">    &lt;section class="grid"&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">18</span><span class="ds-codeview__tx">      &lt;article class="card"&gt;__ARTIFACT_WEB_CARD_A__&lt;/article&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">19</span><span class="ds-codeview__tx">    &lt;/section&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">20</span><span class="ds-codeview__tx">  &lt;/main&gt;</span></div>
+                <div class="ds-codeview__row"><span class="ds-codeview__no" aria-hidden="true">21</span><span class="ds-codeview__tx">&lt;/body&gt;</span></div>
+              </div>
+            </div>
+
+            <div class="ds-aview ds-aview--doc" data-view="doc" hidden>
+              <article class="ds-preview">
+                <h2 class="ds-preview__title">__ARTIFACT_TITLE__</h2>
+                <p class="ds-preview__summary">__ARTIFACT_SUMMARY__</p>
+                <h3 class="ds-preview__h">__ARTIFACT_SECTION_1__</h3>
+                <p class="ds-preview__p">__ARTIFACT_CONTENT_1__</p>
+                <h3 class="ds-preview__h">__ARTIFACT_SECTION_2__</h3>
+                <p class="ds-preview__p">__ARTIFACT_CONTENT_2__</p>
+              </article>
+            </div>
+
+            <div class="ds-aviews__loading" hidden>
+              <div class="ds-aviews__sk" aria-hidden="true">
+                <span class="ds-aviews__sk-bar ds-aviews__sk-bar--title"></span>
+                <span class="ds-aviews__sk-bar ds-aviews__sk-bar--sub"></span>
+                <span class="ds-aviews__sk-block"></span>
+                <span class="ds-aviews__sk-bar"></span>
+                <span class="ds-aviews__sk-bar ds-aviews__sk-bar--lg"></span>
+              </div>
+            </div>
+            <div class="ds-aviews__updating" hidden>
+              <span class="ds-aviews__upbar"></span>
+            </div>
+          </div>
+
+          <aside class="ds-atree" data-component="file-tree" role="tree" aria-label="文件树">
+            <div class="ds-atree__inner">
+              <div class="ds-atree__head">
+                <span class="ds-atree__head-id">__WORKSPACE_ID__</span>
+                <button type="button" class="ds-icon-btn ds-icon-btn--sm" aria-label="搜索文件">
+                  <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-search"></use></svg>
+                </button>
+                <button type="button" class="ds-icon-btn ds-icon-btn--sm" aria-label="工作区更多操作">
+                  <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-more-horizontal"></use></svg>
+                </button>
+              </div>
+              <button type="button" class="ds-atree__row ds-atree__row--folder" role="treeitem" aria-expanded="true">
+                <svg class="ds-icon ds-atree__chev" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+                <svg class="ds-icon ds-atree__folder-ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-folder-open"></use></svg>
+                <span class="ds-atree__label">__FILE_TREE_FOLDER_1_NAME__</span>
+              </button>
+              <div class="ds-atree__group" role="group">
+                <button type="button" class="ds-atree__row ds-atree__row--file ds-atree__row--indent is-current" role="treeitem" aria-current="page" data-type="md" data-id="tree-file-1">
+                  <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-md"></use></svg>
+                  <span class="ds-atree__label">__FILE_TREE_FILE_1_NAME__</span>
+                </button>
+                <button type="button" class="ds-atree__row ds-atree__row--file ds-atree__row--indent" role="treeitem" data-type="xlsx" data-id="tree-file-2">
+                  <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-sheet"></use></svg>
+                  <span class="ds-atree__label">__FILE_TREE_FILE_2_NAME__</span>
+                </button>
+                <button type="button" class="ds-atree__row ds-atree__row--file ds-atree__row--indent" role="treeitem" data-type="docx" data-id="tree-file-3">
+                  <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-text"></use></svg>
+                  <span class="ds-atree__label">__FILE_TREE_FILE_3_NAME__</span>
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="ds-alaunch" hidden>
+          <div class="ds-alaunch__inner">
+            <div class="ds-launch-row ds-launch-row--input">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-search"></use></svg>
+              <input type="text" class="ds-launch-row__field" placeholder="搜索或输入网址" aria-label="搜索或输入网址（原型占位，不跳转）">
+            </div>
+            <button type="button" class="ds-launch-row" data-launch-action="open-folder">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-folder"></use></svg>
+              <span>打开项目文件夹</span>
+            </button>
+            <button type="button" class="ds-launch-row" data-launch-action="open-cloud">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-cloud"></use></svg>
+              <span>打开云盘文件</span>
+            </button>
+            <button type="button" class="ds-launch-row" data-launch-action="new-file">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-plus"></use></svg>
+              <span>新建文件</span>
+            </button>
+            <button type="button" class="ds-launch-row" data-launch-action="open-terminal">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-terminal"></use></svg>
+              <span>打开终端</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<!-- ===== [复制区] 组件 HTML 结束：artifact-panel ===== -->
+</main>
+<script>
+/* ===== [复制区] 依赖组件 JS：popover-menu（随本组件一并复制） ===== */
+/* popover-menu
+ * 用法：
+ *   DSPopoverMenu.open({
+ *     anchor: triggerEl,
+ *     align: 'start' | 'end',
+ *     items: [
+ *       { icon: 'pencil', label: '重命名', action: 'rename', shortcut: 'F2' },
+ *       { icon: 'check-only?' },
+ *       { divider: true },
+ *       { icon: 'trash', label: '删除', action: 'delete', danger: true, disabled: false },
+ *       { label: '两行项', desc: '能力描述', checked: true, twoLine: true }
+ *     ],
+ *     onSelect(action, item, index) {}
+ *   }) -> close()
+ * 行为：焦点进首项 / ↑↓ Home End / Enter / Esc 回焦 / 外部点击、祖先滚动、resize 关闭。
+ */
+(function (global) {
+  'use strict';
+
+  var current = null;
+
+  function iconSvg(name, size) {
+    if (!name) {
+      return '<span class="ds-popover__icon" aria-hidden="true"></span>';
+    }
+    return (
+      '<svg class="ds-popover__icon ds-icon" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+      '<use href="#i-' + name + '"></use></svg>'
+    );
+  }
+
+  function buildItem(item, index) {
+    if (item.divider) {
+      return '<div class="ds-popover__separator" role="separator"></div>';
+    }
+    var cls = ['ds-popover__item'];
+    if (item.danger) cls.push('ds-popover__item--danger');
+    if (item.checked) cls.push('is-checked');
+    if (item.twoLine || item.desc) cls.push('ds-popover__item--two-line');
+
+    var labelInner = item.desc
+      ? '<span class="ds-popover__texts"><span class="ds-popover__label">' + item.label +
+        '</span><span class="ds-popover__desc">' + item.desc + '</span></span>'
+      : '<span class="ds-popover__label">' + item.label + '</span>';
+
+    var check =
+      '<svg class="ds-popover__check ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+      '<use href="#i-check"></use></svg>';
+
+    return (
+      '<button type="button" role="menuitem" class="' + cls.join(' ') + '" data-index="' + index + '"' +
+      (item.disabled ? ' aria-disabled="true"' : '') + ' tabindex="-1">' +
+      iconSvg(item.icon || '', 18) +
+      labelInner +
+      (item.shortcut ? '<span class="ds-popover__shortcut">' + item.shortcut + '</span>' : '') +
+      check +
+      '</button>'
+    );
+  }
+
+  function open(opts) {
+    if (current) current.close();
+
+    var anchor = opts.anchor;
+    var items = opts.items || [];
+    var align = opts.align === 'end' ? 'end' : 'start';
+
+    var root = document.createElement('div');
+    root.setAttribute('data-component', 'popover-menu');
+    root.className = 'ds-popover';
+    root.setAttribute('role', 'menu');
+    root.innerHTML = items.map(buildItem).join('');
+    document.body.appendChild(root);
+
+    var enabledItems = Array.prototype.slice
+      .call(root.querySelectorAll('.ds-popover__item'))
+      .filter(function (el) { return !el.getAttribute('aria-disabled'); });
+
+    var focusIndex = -1;
+
+    function focusAt(i) {
+      if (!enabledItems.length) return;
+      focusIndex = (i + enabledItems.length) % enabledItems.length;
+      enabledItems[focusIndex].focus();
+      enabledItems.forEach(function (el, idx) { el.classList.toggle('is-focused', idx === focusIndex); });
+    }
+
+    function position() {
+      var rect = anchor.getBoundingClientRect();
+      var margin = 8;
+      var w = root.offsetWidth;
+      var h = root.offsetHeight;
+      var left = align === 'end' ? rect.right - w : rect.left;
+      var top = rect.bottom + 4;
+      if (left + w > window.innerWidth - margin) left = window.innerWidth - w - margin;
+      if (left < margin) left = margin;
+      if (top + h > window.innerHeight - margin) {
+        var above = rect.top - h - 4;
+        if (above >= margin) top = above;
+        else top = Math.max(margin, window.innerHeight - h - margin);
+      }
+      root.style.left = left + 'px';
+      root.style.top = top + 'px';
+    }
+
+    function close(restoreFocus) {
+      if (current !== state) return;
+      current = null;
+      anchor.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeydown, true);
+      window.removeEventListener('resize', close0, true);
+      window.removeEventListener('scroll', close0, true);
+      if (root.parentNode) root.parentNode.removeChild(root);
+      if (restoreFocus !== false) anchor.focus();
+    }
+    var close0 = function () { close(); };
+    var state = { anchor: anchor, close: close };
+    current = state;
+
+    function onPointerDown(e) {
+      if (root.contains(e.target) || anchor.contains(e.target) || e.target === anchor) return;
+      close();
+    }
+
+    function onKeydown(e) {
+      switch (e.key) {
+        case 'ArrowDown': e.preventDefault(); focusAt(focusIndex < 0 ? 0 : focusIndex + 1); break;
+        case 'ArrowUp': e.preventDefault(); focusAt(focusIndex < 0 ? enabledItems.length - 1 : focusIndex - 1); break;
+        case 'Home': e.preventDefault(); focusAt(0); break;
+        case 'End': e.preventDefault(); focusAt(enabledItems.length - 1); break;
+        case 'Enter':
+        case ' ':
+          e.preventDefault();
+          if (focusIndex >= 0) activate(enabledItems[focusIndex]);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          break;
+        case 'Tab':
+          close();
+          break;
+      }
+    }
+
+    function activate(btn) {
+      if (!btn || btn.getAttribute('aria-disabled')) return;
+      var index = Number(btn.getAttribute('data-index'));
+      var item = items[index];
+      close();
+      if (typeof opts.onSelect === 'function') opts.onSelect(item.action || item.label, item, index);
+    }
+
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest('.ds-popover__item');
+      if (btn) activate(btn);
+    });
+    root.addEventListener('mouseover', function (e) {
+      var btn = e.target.closest('.ds-popover__item');
+      if (btn && !btn.getAttribute('aria-disabled')) {
+        enabledItems.forEach(function (el) { el.classList.remove('is-focused'); });
+        focusIndex = enabledItems.indexOf(btn);
+        btn.classList.add('is-focused');
+      }
+    });
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeydown, true);
+    window.addEventListener('resize', close0, true);
+    window.addEventListener('scroll', close0, true);
+    anchor.setAttribute('aria-expanded', 'true');
+    position();
+    focusAt(0);
+
+    return close;
+  }
+
+  function isOpen(anchor) {
+    return !!(current && (anchor ? current.anchor === anchor : true));
+  }
+
+  function closeCurrent() {
+    if (current) current.close();
+  }
+
+  global.DSPopoverMenu = { open: open, isOpen: isOpen, closeCurrent: closeCurrent };
+})(window);
+
+/* ===== [复制区] 依赖组件 JS：artifact-toolbar（随本组件一并复制） ===== */
+/* artifact-toolbar
+ * 用法：DSArtifactToolbar.forRoot(bar) ->
+ *   { setTab(t), setKind(k), setMode(m), setName(n),
+ *     setArtifact({id,name,kind,mode}), setTreeOpen(b), isPickerPressed() }
+ * 受控约定：模式钮点击只派发 artifact:mode:change {id,kind,mode:下一态}，
+ * 不自行改态，由 artifact-panel 收事件后回写 setKind/setMode。
+ */
+(function () {
+  'use strict';
+
+  var MORE_ITEMS = [
+    { label: '下载', action: 'download' },
+    { divider: true },
+    { icon: 'pencil', label: '重命名', action: 'rename' }
+  ];
+
+  function forRoot(root) {
+    if (!root || root.__dsAtbarApi) return root && root.__dsAtbarApi;
+
+    var nameEl = root.querySelector('.ds-atbar__name');
+    var picker = root.querySelector('.ds-apick');
+    var modeBtn = root.querySelector('.ds-amode');
+    var modeIcon = modeBtn ? modeBtn.querySelector('.ds-amode__icon use') : null;
+    var modeLabel = modeBtn ? modeBtn.querySelector('.ds-amode__label') : null;
+    var moreBtn = root.querySelector('[data-action="more"]');
+    var treeBtn = root.querySelector('[data-action="tree-toggle"]');
+
+    function render() {
+      var tab = root.dataset.tab === 'artifact' || root.dataset.tab === 'launcher'
+        ? root.dataset.tab
+        : 'empty';
+      var kind = root.dataset.kind === 'web' ? 'web' : 'file';
+      var mode = root.dataset.mode === 'edit' ? 'edit' : 'preview';
+      var isArtifact = tab === 'artifact';
+
+      if (nameEl) nameEl.hidden = !isArtifact;
+      if (modeBtn) modeBtn.hidden = !isArtifact;
+      if (picker) picker.hidden = !(isArtifact && kind === 'web' && mode === 'preview');
+
+      if (modeBtn) {
+        var toEdit = mode === 'preview';
+        if (modeIcon) modeIcon.setAttribute('href', toEdit ? '#i-code' : '#i-play');
+        if (modeLabel) modeLabel.textContent = toEdit ? '编辑' : '预览';
+        modeBtn.setAttribute('aria-label', toEdit ? '切换到代码编辑视图' : '切换到预览视图');
+      }
+    }
+
+    if (modeBtn) {
+      modeBtn.addEventListener('click', function () {
+        var kind = root.dataset.kind === 'web' ? 'web' : 'file';
+        var mode = root.dataset.mode === 'edit' ? 'edit' : 'preview';
+        var next = mode === 'preview' ? 'edit' : 'preview';
+        document.dispatchEvent(new CustomEvent('artifact:mode:change', {
+          detail: { id: root.dataset.artifactId || '', kind: kind, mode: next }
+        }));
+      });
+    }
+
+    /* AP-19/AP-X8 元素选择：仅灰阶按压占位，不做真实选取 */
+    if (picker) {
+      picker.addEventListener('click', function () {
+        var on = picker.getAttribute('aria-pressed') === 'true';
+        picker.setAttribute('aria-pressed', String(!on));
+      });
+    }
+
+    /* ☲：翻转按压态并派发 filetree:toggle {open}；焦点保持在按钮自身（AP-17） */
+    if (treeBtn) {
+      treeBtn.addEventListener('click', function () {
+        var open = treeBtn.getAttribute('aria-pressed') !== 'true';
+        treeBtn.setAttribute('aria-pressed', String(open));
+        document.dispatchEvent(new CustomEvent('filetree:toggle', {
+          detail: { open: open }
+        }));
+      });
+    }
+
+    /* ··· 更多：下载/重命名占位项，选中仅关闭，无真实动作 */
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function () {
+        if (!window.DSPopoverMenu) return;
+        window.DSPopoverMenu.open({
+          anchor: moreBtn,
+          align: 'end',
+          items: MORE_ITEMS,
+          onSelect: function () { /* P 阶段前占位 */ }
+        });
+      });
+    }
+
+    var api = {
+      setTab: function (tab) {
+        if (tab !== 'empty' && tab !== 'artifact' && tab !== 'launcher') return;
+        root.dataset.tab = tab;
+        render();
+      },
+      setKind: function (kind) {
+        root.dataset.kind = kind === 'web' ? 'web' : 'file';
+        render();
+      },
+      setMode: function (mode) {
+        root.dataset.mode = mode === 'edit' ? 'edit' : 'preview';
+        render();
+      },
+      setName: function (name) {
+        if (nameEl) nameEl.textContent = name;
+      },
+      setArtifact: function (a) {
+        a = a || {};
+        root.dataset.tab = 'artifact';
+        if (a.id != null) root.dataset.artifactId = String(a.id);
+        if (a.name != null && nameEl) nameEl.textContent = a.name;
+        if (a.kind) root.dataset.kind = a.kind === 'web' ? 'web' : 'file';
+        if (a.mode) root.dataset.mode = a.mode === 'edit' ? 'edit' : 'preview';
+        render();
+      },
+      setTreeOpen: function (open) {
+        if (treeBtn) treeBtn.setAttribute('aria-pressed', String(!!open));
+      },
+      isPickerPressed: function () {
+        return !!picker && picker.getAttribute('aria-pressed') === 'true';
+      }
+    };
+
+    root.__dsAtbarApi = api;
+    render();
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="artifact-toolbar"]'),
+      forRoot
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSArtifactToolbar = { forRoot: forRoot };
+})();
+
+/* ===== [复制区] 依赖组件 JS：file-tree（随本组件一并复制） ===== */
+/* file-tree
+ * 用法：DSFileTree.forRoot(aside) ->
+ *   { isOpen(), setOpen(b), toggle(), setCurrent(id) }
+ * - 初始 data-open 属性优先（便于静态实物/演示固定状态）；无属性时读 localStorage。
+ * - 文件夹折叠仅内存；文件行点击派发 document 事件 artifact:open {id,name,type}。
+ */
+(function () {
+  'use strict';
+
+  var STORE_KEY = 'ds.chat-workbench.fileTree.open';
+
+  var ICON_BY_EXT = {
+    md: 'file-md',
+    markdown: 'file-md',
+    docx: 'file-text',
+    doc: 'file-text',
+    txt: 'file-text',
+    xlsx: 'file-sheet',
+    xls: 'file-sheet',
+    csv: 'file-sheet',
+    pdf: 'file-pdf',
+    html: 'file-code',
+    htm: 'file-code',
+    css: 'file-code',
+    js: 'file-code',
+    png: 'image',
+    jpg: 'image',
+    jpeg: 'image',
+    gif: 'image',
+    webp: 'image',
+    svg: 'image'
+  };
+
+  function typeFromName(name) {
+    var m = /\.([a-z0-9]+)$/i.exec(name || '');
+    if (!m) return 'file';
+    var ext = m[1].toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].indexOf(ext) >= 0) return 'image';
+    return ext;
+  }
+
+  function iconForType(type) {
+    return ICON_BY_EXT[(type || '').toLowerCase()] || 'file';
+  }
+
+  function setFolderExpanded(btn, expanded) {
+    btn.setAttribute('aria-expanded', String(expanded));
+    var chev = btn.querySelector('.ds-atree__chev use');
+    var folder = btn.querySelector('.ds-atree__folder-ic use');
+    if (chev) chev.setAttribute('href', expanded ? '#i-chevron-down' : '#i-chevron-right');
+    if (folder) folder.setAttribute('href', expanded ? '#i-folder-open' : '#i-folder');
+    var group = btn.nextElementSibling;
+    if (group && group.classList.contains('ds-atree__group')) group.hidden = !expanded;
+  }
+
+  function forRoot(root) {
+    if (!root || root.__dsFileTreeApi) return root && root.__dsFileTreeApi;
+
+    /* 初始状态：显式 data-open 属性优先；否则 localStorage；默认关闭 */
+    if (root.hasAttribute('data-open')) {
+      root.dataset.open = root.dataset.open === 'true' ? 'true' : 'false';
+    } else {
+      root.dataset.open = localStorage.getItem(STORE_KEY) === '1' ? 'true' : 'false';
+    }
+
+    root.addEventListener('click', function (e) {
+      var folderBtn = e.target.closest && e.target.closest('.ds-atree__row--folder');
+      if (folderBtn && root.contains(folderBtn)) {
+        setFolderExpanded(folderBtn, folderBtn.getAttribute('aria-expanded') !== 'true');
+        return;
+      }
+      var fileBtn = e.target.closest && e.target.closest('.ds-atree__row--file');
+      if (fileBtn && root.contains(fileBtn)) {
+        var labelEl = fileBtn.querySelector('.ds-atree__label');
+        var name = labelEl ? labelEl.textContent.trim() : '';
+        var type = fileBtn.getAttribute('data-type') || typeFromName(name);
+        var id = fileBtn.getAttribute('data-id') || name;
+        api.setCurrent(fileBtn.getAttribute('data-id') || name, true);
+        document.dispatchEvent(new CustomEvent('artifact:open', {
+          detail: { id: id, name: name, type: type }
+        }));
+      }
+    });
+
+    function persist(open) {
+      try { localStorage.setItem(STORE_KEY, open ? '1' : '0'); } catch (err) { /* 隐私模式等 */ }
+    }
+
+    var api = {
+      isOpen: function () { return root.dataset.open === 'true'; },
+      setOpen: function (open) {
+        open = !!open;
+        if (api.isOpen() === open) return;
+        root.dataset.open = open ? 'true' : 'false';
+        persist(open);
+      },
+      toggle: function () {
+        api.setOpen(!api.isOpen());
+        return api.isOpen();
+      },
+      setCurrent: function (id, skipDispatch) {
+        Array.prototype.forEach.call(root.querySelectorAll('.ds-atree__row--file'), function (row) {
+          var rowId = row.getAttribute('data-id') ||
+            (row.querySelector('.ds-atree__label') ? row.querySelector('.ds-atree__label').textContent.trim() : '');
+          var on = rowId === id;
+          row.classList.toggle('is-current', on);
+          if (on) row.setAttribute('aria-current', 'page');
+          else row.removeAttribute('aria-current');
+        });
+        if (!skipDispatch) {
+          /* 编程式选中仅更新视觉，不重复派发 artifact:open（外部已持有上下文） */
+        }
+      }
+    };
+
+    root.__dsFileTreeApi = api;
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="file-tree"]'),
+      forRoot
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSFileTree = {
+    forRoot: forRoot,
+    iconForType: iconForType,
+    typeFromName: typeFromName
+  };
+})();
+
+/* ===== [复制区] 依赖组件 JS：document-preview（随本组件一并复制） ===== */
+/* document-preview
+ * 用法：DSDocumentPreview.forRoot(root) ->
+ *   { getKind, setKind('web'|'file'), getMode, setMode('preview'|'edit'),
+ *     getState, setState('ready'|'loading'|'updating') }
+ * 视图映射：edit→code；preview+web→web；preview+file→doc。同刻仅一视图。
+ */
+(function () {
+  'use strict';
+
+  var KINDS = { web: 'web', file: 'file' };
+  var MODES = { preview: 'preview', edit: 'edit' };
+  var STATES = { ready: 'ready', loading: 'loading', updating: 'updating' };
+
+  function forRoot(root) {
+    if (!root || root.__dsPreviewApi) return root && root.__dsPreviewApi;
+
+    var views = {};
+    Array.prototype.forEach.call(root.querySelectorAll('.ds-aview'), function (v) {
+      views[v.getAttribute('data-view')] = v;
+    });
+    var loading = root.querySelector('.ds-aviews__loading');
+    var updating = root.querySelector('.ds-aviews__updating');
+
+    function render() {
+      var kind = KINDS[root.dataset.kind] ? root.dataset.kind : 'file';
+      var mode = MODES[root.dataset.mode] ? root.dataset.mode : 'preview';
+      var state = STATES[root.dataset.state] ? root.dataset.state : 'ready';
+      var target = mode === 'edit' ? 'code' : (kind === 'web' ? 'web' : 'doc');
+      Object.keys(views).forEach(function (key) {
+        views[key].hidden = key !== target;
+      });
+      if (loading) loading.hidden = state !== 'loading';
+      if (updating) updating.hidden = state !== 'updating';
+      root.setAttribute('aria-busy', state === 'ready' ? 'false' : 'true');
+    }
+
+    var api = {
+      getKind: function () { return root.dataset.kind || 'file'; },
+      setKind: function (kind) {
+        if (!KINDS[kind]) return;
+        root.dataset.kind = kind;
+        render();
+      },
+      getMode: function () { return root.dataset.mode || 'preview'; },
+      setMode: function (mode) {
+        if (!MODES[mode]) return;
+        root.dataset.mode = mode;
+        render();
+      },
+      getState: function () { return root.dataset.state || 'ready'; },
+      setState: function (state) {
+        if (!STATES[state]) return;
+        root.dataset.state = state;
+        render();
+      },
+      render: render
+    };
+
+    root.__dsPreviewApi = api;
+    render();
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="document-preview"]'),
+      forRoot
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSDocumentPreview = { forRoot: forRoot };
+})();
+
+/* ===== [复制区] 组件 JS 开始：artifact-panel ===== */
+/* artifact-panel —— 右栏产物工作区主控
+ * 用法：DSArtifactPanel.forRoot(section) ->
+ *   { open({id,name,type}), closeTab(id), newTab(), setState(s), getState() }
+ * document 总线：
+ *   artifact:open        {id,name,type}          末尾插页签或聚焦已存在页签（AP-3）
+ *   artifact:mode:change {id,kind,mode}          回写当前页签模式（工具栏为受控钮）
+ *   filetree:toggle      {open}                  转写 file-tree（持久化由树负责）
+ * 自派：artifact:tab:close {id}、artifact:tab:new {}
+ */
+(function () {
+  'use strict';
+
+  var LAUNCHER_ID = ':launcher:';
+  var LAUNCHER_LABEL = '新标签页';
+
+  var TYPE_ICON = {
+    md: 'file-md',
+    markdown: 'file-md',
+    docx: 'file-text',
+    doc: 'file-text',
+    txt: 'file-text',
+    xlsx: 'file-sheet',
+    xls: 'file-sheet',
+    csv: 'file-sheet',
+    pdf: 'file-pdf',
+    html: 'file-code',
+    htm: 'file-code',
+    web: 'file-code',
+    css: 'file-code',
+    js: 'file-code',
+    png: 'image',
+    jpg: 'image',
+    jpeg: 'image',
+    gif: 'image',
+    webp: 'image',
+    svg: 'image'
+  };
+
+  function iconForType(type) {
+    if (window.DSFileTree && window.DSFileTree.iconForType) return window.DSFileTree.iconForType(type);
+    return TYPE_ICON[(type || '').toLowerCase()] || 'file';
+  }
+
+  function kindOfType(type) {
+    return /^(html|htm|web)$/i.test(type || '') ? 'web' : 'file';
+  }
+
+  function iconUse(name, size) {
+    return '<svg class="ds-icon" viewBox="0 0 24 24" width="' + size + '" height="' + size + '"' +
+      ' aria-hidden="true"><use href="#i-' + name + '"></use></svg>';
+  }
+
+  function forRoot(root) {
+    if (!root || root.__dsArtiApi) return root && root.__dsArtiApi;
+
+    var tabsEl = root.querySelector('.ds-atabs');
+    var spacer = tabsEl.querySelector('.ds-atabs__spacer');
+    var newBtn = tabsEl.querySelector('[data-action="tab-new"]');
+    var barEl = root.querySelector('[data-component="artifact-toolbar"]');
+    var previewRoot = root.querySelector('[data-component="document-preview"]');
+    var treeEl = root.querySelector('[data-component="file-tree"]');
+    var emptyEl = root.querySelector('.ds-aempty');
+    var launchEl = root.querySelector('.ds-alaunch');
+
+    var barApi = window.DSArtifactToolbar.forRoot(barEl);
+    var pvApi = window.DSDocumentPreview.forRoot(previewRoot);
+    var treeApi = window.DSFileTree.forRoot(treeEl);
+
+    /* 页签数据仅内存：右栏关再开 DOM 不销毁，状态自然保留（AP-X2 由壳层保证） */
+    var state = { tabs: [], activeId: null, launcher: false };
+    var focusTarget = null;
+
+    function activeTab() {
+      for (var i = 0; i < state.tabs.length; i++) {
+        if (state.tabs[i].id === state.activeId) return state.tabs[i];
+      }
+      return null;
+    }
+
+    function buildTabEl(t, launcher) {
+      var el = document.createElement('div');
+      el.className = 'ds-atab' + (launcher ? ' ds-atab--launch' : '');
+      el.setAttribute('role', 'tab');
+      el.dataset.tabId = launcher ? LAUNCHER_ID : t.id;
+      var label = launcher ? LAUNCHER_LABEL : t.name;
+      el.innerHTML =
+        iconUse(launcher ? 'plus' : iconForType(t.type), 16) +
+        '<span class="ds-atab__label"></span>' +
+        '<button type="button" class="ds-atab__close" tabindex="-1">' +
+        iconUse('x', 16) + '</button>';
+      el.querySelector('.ds-atab__label').textContent = label;
+      el.querySelector('.ds-atab__close').setAttribute('aria-label', '关闭页签：' + label);
+      return el;
+    }
+
+    function renderTabs() {
+      Array.prototype.forEach.call(tabsEl.querySelectorAll('.ds-atab'), function (el) {
+        tabsEl.removeChild(el);
+      });
+      state.tabs.forEach(function (t) {
+        tabsEl.insertBefore(buildTabEl(t, false), spacer);
+      });
+      if (state.launcher) tabsEl.insertBefore(buildTabEl(null, true), spacer);
+
+      var selectedId = state.launcher ? LAUNCHER_ID : state.activeId;
+      Array.prototype.forEach.call(tabsEl.querySelectorAll('.ds-atab'), function (el) {
+        var on = el.dataset.tabId === selectedId;
+        el.classList.toggle('is-active', on);
+        el.setAttribute('aria-selected', String(on));
+        el.tabIndex = on ? 0 : -1;
+      });
+    }
+
+    function applyFocus() {
+      if (!focusTarget) return;
+      if (focusTarget === 'new') {
+        newBtn.focus();
+      } else if (focusTarget.indexOf('tab:') === 0) {
+        var id = focusTarget.slice(4);
+        var el = tabsEl.querySelector('.ds-atab[data-tab-id="' + id + '"]');
+        if (el) el.focus();
+      }
+      focusTarget = null;
+    }
+
+    function render() {
+      var tab = state.launcher ? 'launcher' : (state.tabs.length ? 'artifact' : 'empty');
+      root.dataset.tab = tab;
+      renderTabs();
+
+      var current = activeTab();
+      if (tab === 'artifact' && current) {
+        barApi.setArtifact({ id: current.id, name: current.name, kind: current.kind, mode: current.mode });
+        previewRoot.hidden = false;
+        pvApi.setKind(current.kind);
+        pvApi.setMode(current.mode);
+        pvApi.setState('ready');
+        emptyEl.hidden = true;
+      } else {
+        barApi.setTab(tab);
+        previewRoot.hidden = true;
+        emptyEl.hidden = tab !== 'empty';
+      }
+      barApi.setTreeOpen(treeApi.isOpen());
+      launchEl.hidden = tab !== 'launcher';
+      applyFocus();
+    }
+
+    function activate(id, withFocus) {
+      state.activeId = id;
+      state.launcher = false;
+      focusTarget = withFocus ? 'tab:' + id : null;
+      render();
+    }
+
+    function openTab(detail) {
+      detail = detail || {};
+      var id = detail.id != null ? String(detail.id) : detail.name;
+      if (id == null || id === '') return;
+      var existing = null;
+      state.tabs.forEach(function (t) { if (t.id === id) existing = t; });
+      if (!existing) {
+        state.tabs.push({
+          id: id,
+          name: detail.name || id,
+          type: detail.type || 'file',
+          kind: kindOfType(detail.type),
+          mode: 'preview'
+        });
+      }
+      /* AP-3：同 id 聚焦=选中该页签（不抢 DOM 焦点，避免从消息区跳焦） */
+      state.activeId = id;
+      state.launcher = false;
+      focusTarget = null;
+      render();
+    }
+
+    function requestClose(id) {
+      if (id === LAUNCHER_ID) {
+        state.launcher = false;
+        focusTarget = state.activeId ? 'tab:' + state.activeId : 'new';
+        render();
+        return;
+      }
+      var idx = -1;
+      state.tabs.forEach(function (t, i) { if (t.id === id) idx = i; });
+      if (idx < 0) return;
+      document.dispatchEvent(new CustomEvent('artifact:tab:close', { detail: { id: id } }));
+      state.tabs.splice(idx, 1);
+      if (state.activeId === id) {
+        var next = state.tabs[idx - 1] || state.tabs[idx] || null;
+        state.activeId = next ? next.id : null;
+      }
+      /* AP-5：焦点移左侧相邻，全关移行尾 ＋ */
+      var neighbor = state.tabs[idx - 1] || state.tabs[idx];
+      focusTarget = neighbor ? 'tab:' + neighbor.id : 'new';
+      render();
+    }
+
+    function newTab() {
+      /* AP-20：单例「新标签页」，已存在仅选中不重复插入 */
+      state.launcher = true;
+      focusTarget = null;
+      document.dispatchEvent(new CustomEvent('artifact:tab:new', { detail: {} }));
+      render();
+    }
+
+    /* 页签鼠标：点击选中；x 关闭（事件委托） */
+    tabsEl.addEventListener('click', function (e) {
+      var close = e.target.closest && e.target.closest('.ds-atab__close');
+      if (close) {
+        var tabEl = close.closest('.ds-atab');
+        if (tabEl && tabsEl.contains(tabEl)) {
+          e.stopPropagation();
+          requestClose(tabEl.dataset.tabId);
+        }
+        return;
+      }
+      var tab = e.target.closest && e.target.closest('.ds-atab');
+      if (tab && tabsEl.contains(tab)) {
+        if (tab.dataset.tabId === LAUNCHER_ID) {
+          state.launcher = true;
+          focusTarget = 'tab:' + LAUNCHER_ID;
+          render();
+        } else {
+          activate(tab.dataset.tabId, true);
+        }
+      }
+    });
+
+    /* AP-15 键盘：←→ 移动焦点（不循环）、Home/End 跳首尾、Enter/Space 选中、Delete 关闭 */
+    tabsEl.addEventListener('keydown', function (e) {
+      var tab = e.target.closest && e.target.closest('.ds-atab');
+      if (!tab || !tabsEl.contains(tab)) return;
+      var els = Array.prototype.slice.call(tabsEl.querySelectorAll('.ds-atab'));
+      var i = els.indexOf(tab);
+      var moveTo = -1;
+      if (e.key === 'ArrowRight') moveTo = Math.min(i + 1, els.length - 1);
+      else if (e.key === 'ArrowLeft') moveTo = Math.max(i - 1, 0);
+      else if (e.key === 'Home') moveTo = 0;
+      else if (e.key === 'End') moveTo = els.length - 1;
+      else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (tab.dataset.tabId === LAUNCHER_ID) {
+          state.launcher = true;
+          render();
+        } else {
+          activate(tab.dataset.tabId, false);
+        }
+        return;
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        requestClose(tab.dataset.tabId);
+        return;
+      }
+      if (moveTo >= 0 && moveTo !== i) {
+        e.preventDefault();
+        els.forEach(function (el, j) { el.tabIndex = j === moveTo ? 0 : -1; });
+        els[moveTo].focus();
+      }
+    });
+
+    newBtn.addEventListener('click', newTab);
+
+    /* ---- document 事件总线 ---- */
+    function onOpen(e) {
+      openTab(e.detail);
+    }
+    function onModeChange(e) {
+      var d = e.detail || {};
+      if (state.launcher || String(d.id) !== String(state.activeId)) return;
+      var t = activeTab();
+      if (!t) return;
+      t.mode = d.mode === 'edit' ? 'edit' : 'preview';
+      if (d.kind === 'web' || d.kind === 'file') t.kind = d.kind;
+      barApi.setKind(t.kind);
+      barApi.setMode(t.mode);
+      pvApi.setKind(t.kind);
+      pvApi.setMode(t.mode);
+    }
+    function onTreeToggle(e) {
+      var open = !!(e.detail && e.detail.open);
+      treeApi.setOpen(open);
+      barApi.setTreeOpen(treeApi.isOpen());
+    }
+    document.addEventListener('artifact:open', onOpen);
+    document.addEventListener('artifact:mode:change', onModeChange);
+    document.addEventListener('filetree:toggle', onTreeToggle);
+
+    var api = {
+      open: openTab,
+      closeTab: requestClose,
+      newTab: newTab,
+      setState: function (s) {
+        if (!state.launcher && state.activeId) pvApi.setState(s);
+      },
+      getState: function () {
+        return {
+          tab: root.dataset.tab,
+          tabs: state.tabs.map(function (t) { return t.id; }),
+          activeId: state.activeId,
+          launcher: state.launcher
+        };
+      }
+    };
+    root.__dsArtiApi = api;
+    render();
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="artifact-panel"]'),
+      forRoot
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSArtifactPanel = { forRoot: forRoot };
+})();
+/* ===== [复制区] 组件 JS 结束：artifact-panel ===== */
+</script>
+<script>
+/* —— 演示外壳脚本（禁止复制进交付物）—— */
+document.getElementById('demo-theme').addEventListener('click', () => {
+  const el = document.documentElement;
+  el.dataset.theme = el.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+
+/* —— artifact-panel 实物页演示脚本（禁止复制进交付物）—— */
+(function () {
+  'use strict';
+
+  var root = document.querySelector('[data-component="artifact-panel"]');
+  var api = window.DSArtifactPanel && window.DSArtifactPanel.forRoot(root);
+  if (!api) return;
+
+  var OPEN_SEED = {
+    html: { id: 'demo-html', name: '积分激励方案.html', type: 'html' },
+    md: { id: 'demo-md', name: 'Q3产品路线图.md', type: 'md' },
+    xlsx: { id: 'demo-xlsx', name: '竞品对比.xlsx', type: 'xlsx' }
+  };
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-panel-open]'), function (btn) {
+    btn.addEventListener('click', function () {
+      var seed = OPEN_SEED[btn.getAttribute('data-panel-open')];
+      document.dispatchEvent(new CustomEvent('artifact:open', { detail: seed }));
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-panel-state]'), function (btn) {
+    btn.addEventListener('click', function () {
+      api.setState(btn.getAttribute('data-panel-state'));
+    });
+  });
+})();
+
+</script>
+</body>
+</html>

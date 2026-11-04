@@ -1,0 +1,2577 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件实物 · composer</title>
+<!--
+  组件文件 = 头部规范 JSON + 可运行实物。
+  复制规则：仅复制 [复制区] 标记内的根节点（data-component="composer"）、CSS、JS；
+  依赖组件（deps_css/deps_js）随本组件一并复制；
+  演示外壳（demo-*）仅供本页目检，禁止进入交付物。
+-->
+<script type="application/json" data-component-spec>
+{
+  "id": "composer",
+  "title": "输入区 composer（自适应高度 / Enter 发送 / 草稿 / 生成态 / 加号菜单）",
+  "region": "composer",
+  "anatomy": [
+    "stage:.ds-composer-stage（max 760 居中）",
+    "box:.ds-composer[data-component=composer][data-conversation-id]（1px border、radius-input 10、surface-raised、container-type:inline-size）",
+    "row:.ds-attach-row（附件，空则 hidden）",
+    "textarea:.ds-composer__textarea（16/24，1–8 行）",
+    "bar:.ds-composer__bar（flex nowrap gap8）：加号 / 语音 / ds-model-switch / spacer / 发送",
+    "menu:.ds-plus-menu#ds-plus-menu + 5 个 .ds-plus-sub（打开时搬 body fixed）",
+    "kernel:input[type=file][hidden]"
+  ],
+  "variants": [
+    "空闲",
+    "生成中（stop 主钮 + 全控件禁用）",
+    "窄宽 @container ≤240 收起模型钮"
+  ],
+  "states": [
+    "empty(disabled send)",
+    "has-text",
+    "generating",
+    "plus-open",
+    "readonly(generating)"
+  ],
+  "tokens": [
+    "--ds-space-1",
+    "--ds-space-2",
+    "--ds-space-3",
+    "--ds-space-4",
+    "--ds-fs-body",
+    "--ds-lh-body",
+    "--ds-fs-compact",
+    "--ds-text-primary",
+    "--ds-on-primary",
+    "--ds-text-secondary",
+    "--ds-text-tertiary",
+    "--ds-border",
+    "--ds-divider",
+    "--ds-surface-raised",
+    "--ds-active-fill",
+    "--ds-hover-fill",
+    "--ds-radius-input",
+    "--ds-radius-chip",
+    "--ds-radius-panel",
+    "--ds-shadow-raised",
+    "--ds-t-fast"
+  ],
+  "slots": [
+    "__COMPOSER_PLACEHOLDER__",
+    "__MODEL_NAME__",
+    "__MODEL_N_NAME__",
+    "__MODEL_N_DESC__",
+    "__PLUS_INTEGRATION_1_NAME__",
+    "__PLUS_INTEGRATION_2_NAME__",
+    "__PLUS_CMD_N_NAME__",
+    "__PLUS_PLUGIN_N_NAME__",
+    "__PLUS_SKILL_N_NAME__",
+    "__PLUS_INTEGRATION_1_ITEM_N_NAME__",
+    "__PLUS_INTEGRATION_2_ITEM_N_NAME__",
+    "__ATTACHMENT_N_NAME__",
+    "__MENTION_FILE_N_NAME__",
+    "__MENTION_KB_N_NAME__",
+    "__MENTION_AGENT_N_NAME__",
+    "__VOICE_TRANSCRIPT_SAMPLE__"
+  ],
+  "deps_css": [
+    "button",
+    "icon-button",
+    "popover-menu",
+    "attachment-chip",
+    "voice-button",
+    "model-switcher",
+    "mention-popover"
+  ],
+  "deps_js": [
+    "popover-menu",
+    "attachment-chip",
+    "voice-button",
+    "model-switcher",
+    "mention-popover"
+  ],
+  "interaction": "DSComposer.forRoot(root)→{setGenerating,setConversation}。CP-3 autosize 1–8 行；CP-4 Enter 发送/Shift+Enter 换行/输入法组词不发送；CP-5/6 空内容禁用发送，发送派发 conversation:submit {text,attachments:{name,type}[]} 并清空；CP-7/8 generating：textarea 只读、加号/语音/模型/@ 禁用、主钮换 i-stop 派发 generation:stop、Enter 不发送；CP-9 草稿 localStorage ds.chat-workbench.draft.{conversationId} 300ms 去抖；CP-11 加号「上传附件」走隐藏 file input；CP-13「添加知识库」关单后在 textarea 插入 @ 唤起提及浮层；CP-25 加号一级+5 二级级联（搬 body/fixed、向上 8、右侧 4 翻转、120ms 悬停宽限、完整键盘、外部/滚动关闭、叶子关闭回焦）；composer:prefill {text,autosubmit}。",
+  "contract_refs": [
+    "CP-1",
+    "CP-2",
+    "CP-3",
+    "CP-4",
+    "CP-5",
+    "CP-6",
+    "CP-7",
+    "CP-8",
+    "CP-9",
+    "CP-11",
+    "CP-24",
+    "CP-25"
+  ],
+  "forbidden": [
+    "聚焦变框色/套 ring",
+    "工具栏换行",
+    "任意宽度横向溢出",
+    "空消息可发送",
+    "generating 中可用入口",
+    "停止用红色",
+    "工具栏裸露附件/@ 入口",
+    "浮层内嵌真实外链",
+    "输入法组词时 Enter 发送"
+  ]
+}
+</script>
+<style>
+/*
+ * AI 原生原型设计 — 设计令牌（CSS 变量）
+ * 由 tokens/tokens.json 生成，请勿手工维护本文件；修改令牌请改 tokens.json。
+ * 组件只允许引用 var(--ds-*)，禁止裸值。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 文字 */
+  --ds-text-primary: #1F1F1F;
+  --ds-text-secondary: #595959;
+  --ds-text-tertiary: #787878;
+  --ds-text-quaternary: #B3B3B3;
+  --ds-on-primary: #FFFFFF;
+
+  /* 表面 */
+  --ds-surface: #FFFFFF;
+  --ds-surface-muted: #F7F7F7;
+  --ds-surface-raised: #FFFFFF;
+  --ds-surface-strong: #F0F0F0;
+
+  /* 结构 */
+  --ds-border: #E5E5E5;
+  --ds-border-strong: #D4D4D4;
+  --ds-divider: #EBEBEB;
+
+  /* 交互中性态（灰阶，不是蓝） */
+  --ds-hover-fill: rgba(0, 0, 0, 0.04);
+  --ds-active-fill: rgba(0, 0, 0, 0.08);
+  --ds-scrim: rgba(0, 0, 0, 0.45);
+
+  /* 语义色 */
+  --ds-color-danger: #DC2626;
+  --ds-on-danger: #FFFFFF;
+  --ds-color-positive: #16A34A;
+  --ds-color-warning: #B45309;
+
+  /* 强调蓝：仅数据可视化与真实语义 */
+  --ds-color-accent: #2563EB;
+  --ds-on-accent: #FFFFFF;
+
+  /* 图表系列 */
+  --ds-chart-1: #2563EB;
+  --ds-chart-2: #DC2626;
+  --ds-chart-3: #16A34A;
+  --ds-chart-4: #7C3AED;
+  --ds-chart-5: #8C8C8C;
+
+  /* 间距阶 4/8/12/16/20/24/32 */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 32px;
+
+  /* 圆角阶 */
+  --ds-radius-small: 4px;
+  --ds-radius-chip: 6px;
+  --ds-radius-button: 8px;
+  --ds-radius-input: 10px;
+  --ds-radius-panel: 12px;
+  --ds-radius-large: 16px;
+  --ds-radius-full: 9999px;
+
+  /* 动效 */
+  --ds-t-micro: 80ms;
+  --ds-t-fast: 120ms;
+  --ds-t-normal: 200ms;
+  --ds-t-slow: 300ms;
+  --ds-t-spin: 1s;
+  --ds-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ds-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 字体 */
+  --ds-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --ds-font-serif: Georgia, "Songti SC", "SimSun", serif;
+
+  /* 排版 */
+  --ds-fs-caption: 12px;
+  --ds-lh-caption: 18px;
+  --ds-fs-compact: 14px;
+  --ds-lh-compact: 22px;
+  --ds-fs-body: 16px;
+  --ds-lh-body: 24px;
+  --ds-fs-title: 17px;
+  --ds-lh-title: 26px;
+  --ds-fs-page: 20px;
+  --ds-lh-page: 28px;
+  --ds-fs-display: 32px;
+  --ds-lh-display: 1.2;
+  --ds-weight-regular: 400;
+  --ds-weight-medium: 500;
+
+  /* 阴影与焦点环 */
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --ds-focus-ring: 0 0 0 2px rgba(31, 31, 31, 0.35);
+
+  /* 壳层几何 */
+  --ds-left-width: 260px;
+  --ds-left-min: 240px;
+  --ds-left-max: 320px;
+  --ds-right-width: 480px;
+  --ds-right-min: 320px;
+  --ds-right-max: 720px;
+  --ds-center-min: 360px;
+  --ds-touch-target: 44px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ds-text-primary: #F5F5F5;
+  --ds-text-secondary: #B8B8B8;
+  --ds-text-tertiary: #8C8C8C;
+  --ds-text-quaternary: #595959;
+  --ds-on-primary: #1A1A1A;
+
+  --ds-surface: #1A1A1A;
+  --ds-surface-muted: #222222;
+  --ds-surface-raised: #242424;
+  --ds-surface-strong: #2E2E2E;
+
+  --ds-border: rgba(255, 255, 255, 0.12);
+  --ds-border-strong: rgba(255, 255, 255, 0.20);
+  --ds-divider: rgba(255, 255, 255, 0.08);
+
+  --ds-hover-fill: rgba(255, 255, 255, 0.06);
+  --ds-active-fill: rgba(255, 255, 255, 0.10);
+  --ds-scrim: rgba(0, 0, 0, 0.60);
+
+  --ds-color-danger: #F26D6D;
+  --ds-on-danger: #1A1A1A;
+  --ds-color-positive: #4CC38A;
+  --ds-color-warning: #F5B544;
+
+  --ds-color-accent: #60A5FA;
+  --ds-on-accent: #0B1B33;
+
+  --ds-chart-1: #60A5FA;
+  --ds-chart-2: #F87171;
+  --ds-chart-3: #4ADE80;
+  --ds-chart-4: #A78BFA;
+  --ds-chart-5: #8C8C8C;
+
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4);
+  --ds-focus-ring: 0 0 0 2px rgba(245, 245, 245, 0.45);
+}
+
+/* 盒模型统一 border-box：几何 token 表达含边框的完整盒 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 页面基色单点定义：只有 body 可以设置页面背景；组件内部不再设置基色 */
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-regular);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 本地字体重置：控件继承 sans，数字使用 tabular-nums */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+svg text {
+  font-family: var(--ds-font-sans);
+}
+
+.ds-number,
+[class*="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 图标统一渲染：1.8px 线性、currentColor、round；外层 svg 必须带 viewBox="0 0 24 24"，
+   尺寸由其 width/height 属性控制（16/18/20/24），否则 <use> 内 symbol 会按 24px 原尺寸溢出被裁 */
+.ds-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* 原生控件保持中性，不用浏览器默认蓝 */
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"],
+progress {
+  accent-color: var(--ds-text-primary);
+}
+
+/* 统一焦点环：深色，不用蓝；box-shadow 自动跟随元素自身圆角，不在此覆盖圆角 */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* 尊重减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== [复制区] 依赖组件 CSS：button（随本组件一并复制） ===== */
+/* button —— 基础按钮：颜色强调只用深色，灰阶承担交互态 */
+[data-component="button"] {
+  /* 组件自身无包裹样式；.ds-btn 为复制后使用的根类 */
+}
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--ds-space-4);
+  margin: 0;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background-color: var(--ds-surface-raised);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    border-color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-btn:hover {
+  background-color: var(--ds-surface-strong);
+  border-color: var(--ds-border-strong);
+}
+
+.ds-btn:active {
+  background-color: var(--ds-surface-strong);
+}
+
+.ds-btn .ds-icon {
+  flex: none;
+}
+
+/* primary：深色实底；hover/active 用主题感知的中性叠加层（浅=压黑，深=提白） */
+.ds-btn--primary {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--primary:hover {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--primary:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* ghost：无底无框，仅 hover 显露灰底 */
+.ds-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.ds-btn--ghost:hover {
+  background-color: var(--ds-hover-fill);
+  border-color: transparent;
+}
+
+.ds-btn--ghost:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* danger：危险实底，仅用于删除等破坏性主动作 */
+.ds-btn--danger {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  color: var(--ds-on-danger);
+}
+
+.ds-btn--danger:hover {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--danger:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* 尺寸 */
+.ds-btn--sm {
+  height: 28px;
+  padding: 0 var(--ds-space-3);
+  font-size: var(--ds-fs-caption);
+  border-radius: var(--ds-radius-chip);
+}
+
+/* 禁用：disabled 属性驱动，键盘不可达、不派发 click */
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background-image: none;
+}
+
+.ds-btn--primary:disabled,
+.ds-btn--danger:disabled {
+  background-color: var(--ds-text-quaternary);
+  border-color: var(--ds-text-quaternary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--ghost:disabled {
+  background-color: transparent;
+}
+
+.ds-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+/* ===== [复制区] 依赖组件 CSS：icon-button（随本组件一并复制） ===== */
+/* icon-button —— 视觉盒 24/32，命中区恒 44px（::before 向四周外扩，不占布局） */
+.ds-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background-color: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  flex: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+/* hidden 属性必须生效：本基元 display:inline-flex（作者样式）会压过 UA 的 [hidden]{display:none}，
+   不显式补回会导致"隐藏"按钮仍渲染（如壳层右栏互斥展收钮） */
+.ds-icon-btn[hidden] {
+  display: none;
+}
+
+/* 命中区外扩到触控下限：absolute 居中、不改变布局与视觉盒 */
+.ds-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: var(--ds-touch-target);
+  min-height: var(--ds-touch-target);
+  margin: auto;
+}
+
+.ds-icon-btn:hover {
+  background-color: var(--ds-hover-fill);
+  color: var(--ds-text-primary);
+}
+
+.ds-icon-btn:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* 选中/开关态：灰阶，不用彩色 */
+.ds-icon-btn.is-active,
+.ds-icon-btn[aria-pressed="true"] {
+  background-color: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+
+/* 置于填充区域内时的描边浅底变体 */
+.ds-icon-btn--subtle {
+  background-color: var(--ds-surface-muted);
+}
+
+.ds-icon-btn--subtle:hover {
+  background-color: var(--ds-surface-strong);
+}
+
+/* 小尺寸视觉盒（命中区仍 44）；圆角与 md 同档：规则映射 icon buttons 统一 8px */
+.ds-icon-btn--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-button);
+}
+
+.ds-icon-btn:disabled,
+.ds-icon-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+  background-color: transparent;
+  color: var(--ds-text-quaternary);
+}
+
+.ds-icon-btn .ds-icon {
+  flex: none;
+}
+
+/* ===== [复制区] 依赖组件 CSS：popover-menu（随本组件一并复制） ===== */
+/* popover-menu —— position:fixed 由 JS 定位；不写在组件内的流中 */
+.ds-popover {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  min-width: 176px;
+  max-width: 320px;
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background-color: var(--ds-surface-raised);
+  box-shadow: var(--ds-shadow-raised);
+}
+
+.ds-popover[hidden] {
+  display: none;
+}
+
+.ds-popover__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-chip);
+  background-color: transparent;
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-regular);
+  line-height: 1;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-popover__item:hover,
+.ds-popover__item.is-focused {
+  background-color: var(--ds-active-fill);
+}
+
+.ds-popover__item[aria-disabled="true"] {
+  color: var(--ds-text-quaternary);
+  cursor: not-allowed;
+  background-color: transparent;
+}
+
+/* 左图标列固定 18，无图标也对齐；右 check 同列宽 */
+.ds-popover__icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--ds-text-secondary);
+}
+
+.ds-popover__label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-popover__shortcut {
+  flex: none;
+  margin-left: var(--ds-space-4);
+  color: var(--ds-text-quaternary);
+  font-size: var(--ds-fs-caption);
+}
+
+.ds-popover__check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: var(--ds-space-2);
+  color: var(--ds-text-primary);
+}
+
+.ds-popover__item:not(.is-checked) .ds-popover__check {
+  visibility: hidden;
+}
+
+/* 危险项：图标与文字同为 danger，hover 用 danger 的浅色混合底 */
+.ds-popover__item--danger,
+.ds-popover__item--danger .ds-popover__icon {
+  color: var(--ds-color-danger);
+}
+
+.ds-popover__item--danger:hover,
+.ds-popover__item--danger.is-focused {
+  background-color: color-mix(in srgb, var(--ds-color-danger) 10%, transparent);
+}
+
+.ds-popover__separator {
+  height: 1px;
+  margin: var(--ds-space-1) calc(var(--ds-space-1) + var(--ds-space-1));
+  background-color: var(--ds-divider);
+}
+
+/* 单选项的描述行（model-switcher 复用）：双行结构 */
+.ds-popover__item--two-line {
+  height: auto;
+  min-height: 40px;
+  padding-top: var(--ds-space-2);
+  padding-bottom: var(--ds-space-2);
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.ds-popover__item--two-line .ds-popover__texts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+.ds-popover__desc {
+  color: var(--ds-text-tertiary);
+  font-size: var(--ds-fs-caption);
+  font-weight: var(--ds-weight-regular);
+}
+
+.ds-popover__item--danger .ds-popover__desc {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* ===== [复制区] 依赖组件 CSS：attachment-chip（随本组件一并复制） ===== */
+/* attachment-chip —— 附件行（有附件才占位）与单附件 chip（CP-10/12） */
+.ds-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  padding-bottom: var(--ds-space-2);
+}
+
+.ds-attach-row[hidden] {
+  display: none;
+}
+
+.ds-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  max-width: 220px;
+  height: 24px;
+  padding: 0 var(--ds-space-1) 0 var(--ds-space-2);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-chip);
+  background: var(--ds-surface-muted);
+  box-sizing: border-box;
+}
+
+.ds-attach-chip__icon {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+
+.ds-attach-chip__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-primary);
+}
+
+.ds-attach-chip__x {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: var(--ds-radius-chip);
+  background: transparent;
+  color: var(--ds-text-tertiary);
+  cursor: pointer;
+  transition: background-color var(--ds-t-fast) var(--ds-ease-standard),
+    color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-attach-chip__x:hover {
+  background: var(--ds-surface-strong);
+  color: var(--ds-text-primary);
+}
+
+/* ===== [复制区] 依赖组件 CSS：voice-button（随本组件一并复制） ===== */
+/* voice-button —— 三态语音钮（CP-20）；基类尺寸/命中复用 ds-icon-btn */
+.ds-voice {
+  position: relative;
+  flex: none;
+}
+
+/* recording：深色实心（非红），白图标 */
+.ds-voice[data-state="recording"] {
+  background-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+.ds-voice[data-state="recording"]:hover {
+  background-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+/* 12px danger 红点：唯一红色，真实录音状态语义 */
+.ds-voice__dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-danger);
+  border: 2px solid var(--ds-surface-raised);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* transcribing：旋转 */
+.ds-voice__spinner {
+  display: block;
+  animation: ds-voice-spin var(--ds-t-spin) linear infinite;
+}
+
+@keyframes ds-voice-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-voice__spinner {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* ===== [复制区] 依赖组件 CSS：model-switcher（随本组件一并复制） ===== */
+/* model-switcher —— 工具栏中部模型切换触发器（弹层复用 DSPopoverMenu，CP-17） */
+.ds-model-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background: transparent;
+  color: var(--ds-text-secondary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  cursor: pointer;
+  transition: background-color var(--ds-t-fast) var(--ds-ease-standard),
+    color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-model-switch:hover,
+.ds-model-switch[aria-expanded="true"] {
+  background: var(--ds-hover-fill);
+  color: var(--ds-text-primary);
+}
+
+.ds-model-switch__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-model-switch__caret {
+  flex: none;
+}
+
+.ds-model-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ===== [复制区] 依赖组件 CSS：mention-popover（随本组件一并复制） ===== */
+/* mention-popover —— @ 提及浮层（CP-15：宽 280 / max-h 320 / popover 同款卡面） */
+.ds-mention {
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
+  max-height: 320px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-surface-raised);
+  box-shadow: var(--ds-shadow-raised);
+}
+
+.ds-mention[hidden] {
+  display: none;
+}
+
+.ds-mention__group {
+  display: block;
+}
+
+.ds-mention__group-title {
+  display: block;
+  padding: var(--ds-space-1) var(--ds-space-2);
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+}
+
+.ds-mention__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-chip);
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-mention__item:hover,
+.ds-mention__item.is-focused {
+  background: var(--ds-active-fill);
+}
+
+.ds-mention__icon {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+
+.ds-mention__item:hover .ds-mention__icon,
+.ds-mention__item.is-focused .ds-mention__icon {
+  color: var(--ds-text-primary);
+}
+
+.ds-mention__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== [复制区] 组件 CSS 开始：composer ===== */
+/* composer —— 输入区外框、textarea、工具栏与加号收纳菜单（CP-1/2/3/24/25） */
+.ds-composer-stage {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0; /* CP-24：允许随中栏收缩，不被 min-content 撑宽 */
+  box-sizing: border-box;
+  padding: 0 var(--ds-space-4) var(--ds-space-3);
+}
+
+.ds-composer {
+  width: 100%;
+  min-width: 0; /* CP-24：flex 子项 min-width:auto 兜底 */
+  box-sizing: border-box;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-input);
+  background: var(--ds-surface-raised);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  container-type: inline-size; /* CP-24：窄宽模型钮收起的容器查询基准 */
+}
+
+/* CP-1：外框常驻；聚焦不变色不套 ring。textarea 始终无 outline/box-shadow，
+   类+伪类 (0,2,0) 显式压过 tokens.css 全局 :focus-visible (0,1,0) */
+.ds-composer__textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: calc(var(--ds-lh-body) * 8 + var(--ds-space-1) * 2); /* 最多 8 行 */
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  padding: var(--ds-space-1) 0;
+}
+
+.ds-composer__textarea:focus,
+.ds-composer__textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* CP-24：工具栏恒单行，发送钮始终钉右 */
+.ds-composer__bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+
+.ds-composer__spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ds-composer__send {
+  flex: none;
+  background: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+.ds-composer__plus,
+.ds-composer__voice {
+  flex: none;
+}
+
+.ds-composer__plus:disabled,
+.ds-composer__send:disabled {
+  cursor: not-allowed;
+}
+
+/* 兜底置于模型钮常规规则之后：composer ≤240px 收起模型钮 */
+@container (max-width: 240px) {
+  .ds-model-switch {
+    display: none;
+  }
+}
+
+/* ---------- CP-25 加号收纳菜单（卡面同 popover；JS 打开时搬 body 后 fixed） ---------- */
+.ds-composer__plus[aria-expanded="true"] {
+  background-color: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+
+.ds-plus-menu,
+.ds-plus-sub {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-surface-raised);
+  box-shadow: var(--ds-shadow-raised);
+}
+
+.ds-plus-menu {
+  width: 240px;
+}
+
+.ds-plus-sub {
+  width: 232px;
+}
+
+.ds-plus-menu[hidden],
+.ds-plus-sub[hidden] {
+  display: none;
+}
+
+.ds-plus-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-chip);
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-regular);
+  /* 1.2 而非 1：label overflow:hidden 会裁掉下划线字符下沿；32px 固定高 flex 居中 */
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-plus-menu__item:hover,
+.ds-plus-menu__item.is-focused {
+  background: var(--ds-active-fill);
+}
+
+.ds-plus-menu__icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--ds-text-secondary);
+}
+
+.ds-plus-menu__item:hover .ds-plus-menu__icon,
+.ds-plus-menu__item.is-focused .ds-plus-menu__icon {
+  color: var(--ds-text-primary);
+}
+
+.ds-plus-menu__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-plus-menu__caret {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--ds-text-tertiary);
+}
+
+.ds-plus-menu__sep {
+  height: 1px;
+  margin: var(--ds-space-1) calc(2 * var(--ds-space-1));
+  background: var(--ds-divider);
+}
+
+/* 二级面板标题：不可选弱文案行 */
+.ds-plus-sub__title {
+  padding: var(--ds-space-1) var(--ds-space-2);
+  color: var(--ds-text-tertiary);
+  font-size: var(--ds-fs-caption);
+  line-height: 1.4;
+}
+
+/* 面板底部「管理…/探索更多…」弱入口 */
+.ds-plus-menu__item--weak,
+.ds-plus-menu__item--weak .ds-plus-menu__icon {
+  color: var(--ds-text-secondary);
+}
+
+.ds-plus-menu__item--weak:hover .ds-plus-menu__icon {
+  color: var(--ds-text-primary);
+}
+/* ===== [复制区] 组件 CSS 结束：composer ===== */
+
+/* —— 演示外壳（仅供组件实物页，禁止复制进交付物）—— */
+.demo-topbar { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:12px;
+  height:48px; padding:0 16px; background:var(--ds-surface); border-bottom:1px solid var(--ds-divider); }
+.demo-topbar__title { font-size:var(--ds-fs-compact); font-weight:var(--ds-weight-medium); }
+.demo-topbar__tag { font-size:var(--ds-fs-caption); color:var(--ds-text-tertiary); }
+.demo-topbar__spacer { flex:1; }
+.demo-main { padding:24px; }
+.demo-section { margin-bottom:24px; }
+.demo-section > h3 { font-size:var(--ds-fs-caption); font-weight:var(--ds-weight-medium);
+  color:var(--ds-text-tertiary); margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; }
+.demo-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.demo-row + .demo-row { margin-top:12px; }
+.demo-canvas { border:1px dashed var(--ds-border-strong); border-radius:var(--ds-radius-panel); padding:16px; }
+
+
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <defs>
+    <!-- 渲染约定：引用侧 <svg class="ds-icon"><use href="#i-xxx"/></svg>；
+         .ds-icon 在 tokens.css 统一定义 fill:none / stroke:currentColor / 1.8px / round。
+         实心元素在自身标记 fill="currentColor" stroke="none"。 -->
+
+    <!-- 通用操作 -->
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-x"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-circle"><circle cx="12" cy="12" r="9"/></symbol>
+    <symbol id="i-pause"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-stop"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></symbol>
+
+    <!-- 方向/展收 -->
+    <symbol id="i-chevron-right"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-left"><path d="m15 18-6-6 6-6"/></symbol>
+
+    <!-- 菜单/更多/导航 -->
+    <symbol id="i-menu"><path d="M4 12h16M4 6h16M4 18h16"/></symbol>
+    <symbol id="i-more-horizontal"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-list-tree"><path d="M4 6h.01M4 12h.01M4 18h.01"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
+    <symbol id="i-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-alert-triangle"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 2.52h16.94a2 2 0 0 0 1.71-2.52L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+
+    <!-- 会话/项目 -->
+    <symbol id="i-message-plus"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M12 8v6M9 11h6"/></symbol>
+    <symbol id="i-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-open"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-folder-plus"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13h6"/></symbol>
+    <symbol id="i-folder-input"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></symbol>
+    <symbol id="i-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z"/></symbol>
+
+    <!-- 行操作 -->
+    <symbol id="i-pencil"><path d="M21.17 6.81a1 1 0 0 0-3.98-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.63l4.35-1.32a2 2 0 0 0 .83-.5Z"/></symbol>
+    <symbol id="i-trash"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-copy"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-refresh"><path d="M3 12a9 9 0 0 1 15.74-6.26L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.74 6.26L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-share"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></symbol>
+    <symbol id="i-git-branch"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-thumb-up"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></symbol>
+    <symbol id="i-thumb-down"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></symbol>
+
+    <!-- 输入区 -->
+    <symbol id="i-send"><path d="M14.54 21.69a.5.5 0 0 0 .93-.03l6.5-19a.5.5 0 0 0-.63-.63l-19 6.5a.5.5 0 0 0-.03.93l7.93 3.18a2 2 0 0 1 1.11 1.11Z"/><path d="m21.85 2.15-10.94 10.94"/></symbol>
+    <symbol id="i-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-at-sign"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></symbol>
+    <symbol id="i-mic"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></symbol>
+
+    <!-- composer 加号收纳菜单（CP-25）：全部 24 网格手绘线性几何，保持 1.8 描边一致 -->
+    <symbol id="i-hash"><path d="M4 9h16M4 15h16M10 4 8.5 20M16 4l-1.5 16"/></symbol>
+    <symbol id="i-bolt"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12Z"/></symbol>
+    <symbol id="i-terminal"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="m7.5 9 3 3-3 3M13 15.5h4"/></symbol>
+    <symbol id="i-grid"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-blocks"><rect x="3.5" y="8" width="5" height="12" rx="1.2"/><rect x="9.5" y="4.5" width="5" height="15.5" rx="1.2"/><rect x="15.5" y="9.5" width="5" height="10.5" rx="1.2"/></symbol>
+    <symbol id="i-sliders"><path d="M3.5 7h6M14.5 7h6M3.5 12h2.5M12 12h8.5M3.5 17h10M18.5 17h2"/><circle cx="12.5" cy="7" r="2.2"/><circle cx="9" cy="12" r="2.2"/><circle cx="16" cy="17" r="2.2"/></symbol>
+
+    <!-- 知识库/智能体/用户/模型 -->
+    <symbol id="i-book-open"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/></symbol>
+    <symbol id="i-bot"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2"/><path d="M9 13v2M15 13v2"/></symbol>
+    <symbol id="i-user"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-sparkles"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0Z"/><path d="M20 3v4M22 5h-4M4 17v2M5 18H3"/></symbol>
+
+    <!-- 文件类型 -->
+    <symbol id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></symbol>
+    <symbol id="i-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 16.5h6"/></symbol>
+    <symbol id="i-file-md"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8.5 17.5v-3.4l1.8 2.1 1.8-2.1v3.4"/></symbol>
+    <symbol id="i-file-sheet"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 12.5h6M9 15.5h6M11 11.5v6M14 11.5v6"/></symbol>
+    <symbol id="i-file-pdf"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9.2 17.2v-4h1.6a1.4 1.4 0 0 1 0 2.8H9.2"/></symbol>
+    <symbol id="i-image"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+
+    <!-- 产物面板：编辑/预览、代码文件、云盘、元素选择 -->
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></symbol>
+    <symbol id="i-file-code" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m10 13-2 2 2 2M14 13l2 2-2 2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 5 12 7-12 7Z"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><rect x="4" y="5" width="10" height="9" rx="1.5"/><path d="M19 13.8V19h-5.2"/><path d="m12.5 12.5 6.5 6.5"/></symbol>
+
+    <!-- 壳层面板 -->
+    <symbol id="i-panel-left"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-panel-right"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  </defs>
+</svg>
+
+<div class="demo-topbar">
+  <span class="demo-topbar__title">chat-workbench / composer</span>
+  <span class="demo-topbar__tag">输入区 composer（自适应高度 / Enter 发送 / 草稿 / 生成态 / 加号菜单）</span>
+  <span class="demo-topbar__spacer"></span>
+  <button class="ds-btn ds-btn--ghost" id="demo-theme" type="button">切换浅/深主题</button>
+</div>
+<main class="demo-main">
+<!-- ===== [复制区] 组件 HTML 开始：composer ===== -->
+<div class="demo-section">
+  <h3>composer（Enter 发送 / Shift+Enter 换行 / 加号收纳附件与能力 / 语音与模型常驻；生成中主钮变 stop）</h3>
+  <div class="demo-canvas" style="width:760px;max-width:100%">
+    <div aria-hidden="true" style="height:280px"></div>
+    <div class="ds-composer-stage">
+      <div class="ds-composer" data-component="composer" data-conversation-id="demo-conversation">
+        <div class="ds-attach-row" hidden></div>
+        <textarea class="ds-composer__textarea" rows="1" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
+        <div class="ds-composer__bar">
+          <button type="button" class="ds-icon-btn ds-composer__plus" aria-label="更多输入能力"
+            aria-haspopup="menu" aria-expanded="false" aria-controls="ds-plus-menu">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-plus"></use></svg>
+          </button>
+          <button type="button" class="ds-icon-btn ds-voice ds-composer__voice" data-transcript="__VOICE_TRANSCRIPT_SAMPLE__" aria-label="语音输入">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-mic"></use></svg>
+          </button>
+          <button type="button" class="ds-model-switch" data-component="model-switcher"
+            aria-haspopup="listbox" aria-expanded="false">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span class="ds-model-switch__name">__MODEL_NAME__</span>
+            <svg class="ds-icon ds-model-switch__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+          </button>
+          <script type="application/json" data-model-seed>
+            [
+              { "name": "__MODEL_1_NAME__", "desc": "__MODEL_1_DESC__" },
+              { "name": "__MODEL_2_NAME__", "desc": "__MODEL_2_DESC__" },
+              { "name": "__MODEL_3_NAME__", "desc": "__MODEL_3_DESC__" }
+            ]
+          </script>
+          <span class="ds-composer__spacer" aria-hidden="true"></span>
+          <button type="button" class="ds-btn ds-btn--primary ds-composer__send" disabled aria-label="发送">
+            <svg class="ds-icon ds-composer__send-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-send"></use></svg>
+          </button>
+        </div>
+
+        <input type="file" class="ds-composer__file" hidden multiple />
+        <script type="application/json" data-mention-seed>
+          {
+            "file": ["__MENTION_FILE_1_NAME__", "__MENTION_FILE_2_NAME__"],
+            "kb": ["__MENTION_KB_1_NAME__", "__MENTION_KB_2_NAME__"],
+            "agent": ["__MENTION_AGENT_1_NAME__", "__MENTION_AGENT_2_NAME__"]
+          }
+        </script>
+
+        <div class="ds-plus-menu" id="ds-plus-menu" role="menu" hidden aria-label="更多输入能力">
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="add-context">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-hash"></use></svg>
+            <span class="ds-plus-menu__label">添加知识库</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="invoke">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-bolt"></use></svg>
+            <span class="ds-plus-menu__label">调用命令和技能</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="attachment">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-paperclip"></use></svg>
+            <span class="ds-plus-menu__label">上传附件</span>
+          </button>
+          <div class="ds-plus-menu__sep" role="separator"></div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-sub="command" aria-haspopup="menu" aria-expanded="false">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+            <span class="ds-plus-menu__label">命令</span>
+            <svg class="ds-icon ds-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-sub="plugin" aria-haspopup="menu" aria-expanded="false">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+            <span class="ds-plus-menu__label">插件</span>
+            <svg class="ds-icon ds-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-sub="skill" aria-haspopup="menu" aria-expanded="false">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+            <span class="ds-plus-menu__label">技能</span>
+            <svg class="ds-icon ds-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button>
+          <div class="ds-plus-menu__sep" role="separator"></div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-sub="integration-1" aria-haspopup="menu" aria-expanded="false">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-file-text"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_INTEGRATION_1_NAME__</span>
+            <svg class="ds-icon ds-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-sub="integration-2" aria-haspopup="menu" aria-expanded="false">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-user"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_INTEGRATION_2_NAME__</span>
+            <svg class="ds-icon ds-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button>
+        </div>
+
+        <div class="ds-plus-sub" data-plus-panel="command" role="menu" hidden aria-label="命令">
+          <div class="ds-plus-sub__title">可用命令</div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="command-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_CMD_1_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="command-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_CMD_2_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="command-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_CMD_3_NAME__</span>
+          </button>
+          <div class="ds-plus-menu__sep" role="separator"></div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="manage-command">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <span class="ds-plus-menu__label">管理命令</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="explore-command">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+            <span class="ds-plus-menu__label">探索更多命令</span>
+          </button>
+        </div>
+
+        <div class="ds-plus-sub" data-plus-panel="plugin" role="menu" hidden aria-label="插件">
+          <div class="ds-plus-sub__title">可用插件</div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="plugin-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_PLUGIN_1_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="plugin-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_PLUGIN_2_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="plugin-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_PLUGIN_3_NAME__</span>
+          </button>
+          <div class="ds-plus-menu__sep" role="separator"></div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="manage-plugin">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <span class="ds-plus-menu__label">管理插件</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="explore-plugin">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+            <span class="ds-plus-menu__label">探索更多插件</span>
+          </button>
+        </div>
+
+        <div class="ds-plus-sub" data-plus-panel="skill" role="menu" hidden aria-label="技能">
+          <div class="ds-plus-sub__title">可用技能</div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="skill-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_SKILL_1_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="skill-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_SKILL_2_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="skill-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_SKILL_3_NAME__</span>
+          </button>
+          <div class="ds-plus-menu__sep" role="separator"></div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="manage-skill">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <span class="ds-plus-menu__label">管理技能</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="explore-skill">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+            <span class="ds-plus-menu__label">探索更多技能</span>
+          </button>
+        </div>
+
+        <div class="ds-plus-sub" data-plus-panel="integration-1" role="menu" hidden aria-label="__PLUS_INTEGRATION_1_NAME__">
+          <div class="ds-plus-sub__title">__PLUS_INTEGRATION_1_NAME__</div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="integration-1-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-file-text"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_INTEGRATION_1_ITEM_1_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="integration-1-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-file-text"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_INTEGRATION_1_ITEM_2_NAME__</span>
+          </button>
+          <div class="ds-plus-menu__sep" role="separator"></div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="manage-integration-1">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <span class="ds-plus-menu__label">管理</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="explore-integration-1">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+            <span class="ds-plus-menu__label">探索更多</span>
+          </button>
+        </div>
+
+        <div class="ds-plus-sub" data-plus-panel="integration-2" role="menu" hidden aria-label="__PLUS_INTEGRATION_2_NAME__">
+          <div class="ds-plus-sub__title">__PLUS_INTEGRATION_2_NAME__</div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="integration-2-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-user"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_INTEGRATION_2_ITEM_1_NAME__</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item" data-plus-action="integration-2-item">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-user"></use></svg>
+            <span class="ds-plus-menu__label">__PLUS_INTEGRATION_2_ITEM_2_NAME__</span>
+          </button>
+          <div class="ds-plus-menu__sep" role="separator"></div>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="manage-integration-2">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            <span class="ds-plus-menu__label">管理</span>
+          </button>
+          <button type="button" role="menuitem" class="ds-plus-menu__item ds-plus-menu__item--weak" data-plus-action="explore-integration-2">
+            <svg class="ds-icon ds-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+            <span class="ds-plus-menu__label">探索更多</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ===== [复制区] 组件 HTML 结束：composer ===== -->
+</main>
+<script>
+/* ===== [复制区] 依赖组件 JS：popover-menu（随本组件一并复制） ===== */
+/* popover-menu
+ * 用法：
+ *   DSPopoverMenu.open({
+ *     anchor: triggerEl,
+ *     align: 'start' | 'end',
+ *     items: [
+ *       { icon: 'pencil', label: '重命名', action: 'rename', shortcut: 'F2' },
+ *       { icon: 'check-only?' },
+ *       { divider: true },
+ *       { icon: 'trash', label: '删除', action: 'delete', danger: true, disabled: false },
+ *       { label: '两行项', desc: '能力描述', checked: true, twoLine: true }
+ *     ],
+ *     onSelect(action, item, index) {}
+ *   }) -> close()
+ * 行为：焦点进首项 / ↑↓ Home End / Enter / Esc 回焦 / 外部点击、祖先滚动、resize 关闭。
+ */
+(function (global) {
+  'use strict';
+
+  var current = null;
+
+  function iconSvg(name, size) {
+    if (!name) {
+      return '<span class="ds-popover__icon" aria-hidden="true"></span>';
+    }
+    return (
+      '<svg class="ds-popover__icon ds-icon" viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+      '<use href="#i-' + name + '"></use></svg>'
+    );
+  }
+
+  function buildItem(item, index) {
+    if (item.divider) {
+      return '<div class="ds-popover__separator" role="separator"></div>';
+    }
+    var cls = ['ds-popover__item'];
+    if (item.danger) cls.push('ds-popover__item--danger');
+    if (item.checked) cls.push('is-checked');
+    if (item.twoLine || item.desc) cls.push('ds-popover__item--two-line');
+
+    var labelInner = item.desc
+      ? '<span class="ds-popover__texts"><span class="ds-popover__label">' + item.label +
+        '</span><span class="ds-popover__desc">' + item.desc + '</span></span>'
+      : '<span class="ds-popover__label">' + item.label + '</span>';
+
+    var check =
+      '<svg class="ds-popover__check ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+      '<use href="#i-check"></use></svg>';
+
+    return (
+      '<button type="button" role="menuitem" class="' + cls.join(' ') + '" data-index="' + index + '"' +
+      (item.disabled ? ' aria-disabled="true"' : '') + ' tabindex="-1">' +
+      iconSvg(item.icon || '', 18) +
+      labelInner +
+      (item.shortcut ? '<span class="ds-popover__shortcut">' + item.shortcut + '</span>' : '') +
+      check +
+      '</button>'
+    );
+  }
+
+  function open(opts) {
+    if (current) current.close();
+
+    var anchor = opts.anchor;
+    var items = opts.items || [];
+    var align = opts.align === 'end' ? 'end' : 'start';
+
+    var root = document.createElement('div');
+    root.setAttribute('data-component', 'popover-menu');
+    root.className = 'ds-popover';
+    root.setAttribute('role', 'menu');
+    root.innerHTML = items.map(buildItem).join('');
+    document.body.appendChild(root);
+
+    var enabledItems = Array.prototype.slice
+      .call(root.querySelectorAll('.ds-popover__item'))
+      .filter(function (el) { return !el.getAttribute('aria-disabled'); });
+
+    var focusIndex = -1;
+
+    function focusAt(i) {
+      if (!enabledItems.length) return;
+      focusIndex = (i + enabledItems.length) % enabledItems.length;
+      enabledItems[focusIndex].focus();
+      enabledItems.forEach(function (el, idx) { el.classList.toggle('is-focused', idx === focusIndex); });
+    }
+
+    function position() {
+      var rect = anchor.getBoundingClientRect();
+      var margin = 8;
+      var w = root.offsetWidth;
+      var h = root.offsetHeight;
+      var left = align === 'end' ? rect.right - w : rect.left;
+      var top = rect.bottom + 4;
+      if (left + w > window.innerWidth - margin) left = window.innerWidth - w - margin;
+      if (left < margin) left = margin;
+      if (top + h > window.innerHeight - margin) {
+        var above = rect.top - h - 4;
+        if (above >= margin) top = above;
+        else top = Math.max(margin, window.innerHeight - h - margin);
+      }
+      root.style.left = left + 'px';
+      root.style.top = top + 'px';
+    }
+
+    function close(restoreFocus) {
+      if (current !== state) return;
+      current = null;
+      anchor.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeydown, true);
+      window.removeEventListener('resize', close0, true);
+      window.removeEventListener('scroll', close0, true);
+      if (root.parentNode) root.parentNode.removeChild(root);
+      if (restoreFocus !== false) anchor.focus();
+    }
+    var close0 = function () { close(); };
+    var state = { anchor: anchor, close: close };
+    current = state;
+
+    function onPointerDown(e) {
+      if (root.contains(e.target) || anchor.contains(e.target) || e.target === anchor) return;
+      close();
+    }
+
+    function onKeydown(e) {
+      switch (e.key) {
+        case 'ArrowDown': e.preventDefault(); focusAt(focusIndex < 0 ? 0 : focusIndex + 1); break;
+        case 'ArrowUp': e.preventDefault(); focusAt(focusIndex < 0 ? enabledItems.length - 1 : focusIndex - 1); break;
+        case 'Home': e.preventDefault(); focusAt(0); break;
+        case 'End': e.preventDefault(); focusAt(enabledItems.length - 1); break;
+        case 'Enter':
+        case ' ':
+          e.preventDefault();
+          if (focusIndex >= 0) activate(enabledItems[focusIndex]);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          break;
+        case 'Tab':
+          close();
+          break;
+      }
+    }
+
+    function activate(btn) {
+      if (!btn || btn.getAttribute('aria-disabled')) return;
+      var index = Number(btn.getAttribute('data-index'));
+      var item = items[index];
+      close();
+      if (typeof opts.onSelect === 'function') opts.onSelect(item.action || item.label, item, index);
+    }
+
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest('.ds-popover__item');
+      if (btn) activate(btn);
+    });
+    root.addEventListener('mouseover', function (e) {
+      var btn = e.target.closest('.ds-popover__item');
+      if (btn && !btn.getAttribute('aria-disabled')) {
+        enabledItems.forEach(function (el) { el.classList.remove('is-focused'); });
+        focusIndex = enabledItems.indexOf(btn);
+        btn.classList.add('is-focused');
+      }
+    });
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeydown, true);
+    window.addEventListener('resize', close0, true);
+    window.addEventListener('scroll', close0, true);
+    anchor.setAttribute('aria-expanded', 'true');
+    position();
+    focusAt(0);
+
+    return close;
+  }
+
+  function isOpen(anchor) {
+    return !!(current && (anchor ? current.anchor === anchor : true));
+  }
+
+  function closeCurrent() {
+    if (current) current.close();
+  }
+
+  global.DSPopoverMenu = { open: open, isOpen: isOpen, closeCurrent: closeCurrent };
+})(window);
+
+/* ===== [复制区] 依赖组件 JS：attachment-chip（随本组件一并复制） ===== */
+/* attachment-chip —— chip 工厂；移除走冒泡 attach:remove 事件（CP-10/11） */
+(function () {
+  'use strict';
+
+  var ICON_BY_TYPE = {
+    pdf: 'file-pdf',
+    xlsx: 'file-sheet',
+    xls: 'file-sheet',
+    image: 'image',
+    png: 'image',
+    jpg: 'image',
+    jpeg: 'image',
+    gif: 'image',
+    txt: 'file-text',
+    md: 'file-text',
+    docx: 'file-text'
+  };
+
+  function typeFromName(name) {
+    var m = /\.([a-z0-9]+)$/i.exec(name || '');
+    if (!m) return 'file';
+    var ext = m[1].toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].indexOf(ext) >= 0) return 'image';
+    return ext;
+  }
+
+  function iconFor(type) {
+    return ICON_BY_TYPE[type] || 'file';
+  }
+
+  function create(file) {
+    var name = file.name;
+    var type = file.type || typeFromName(name);
+    var chip = document.createElement('span');
+    chip.className = 'ds-attach-chip';
+    chip.setAttribute('data-type', type);
+    chip.innerHTML =
+      '<svg class="ds-icon ds-attach-chip__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-' + iconFor(type) + '"></use></svg>' +
+      '<span class="ds-attach-chip__name"></span>' +
+      '<button type="button" class="ds-attach-chip__x" aria-label="移除附件">' +
+      '<svg class="ds-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><use href="#i-x"></use></svg>' +
+      '</button>';
+    chip.querySelector('.ds-attach-chip__name').textContent = name;
+    chip.querySelector('.ds-attach-chip__x').addEventListener('click', function () {
+      /* 先移除，再由父行派发冒泡事件：行监听器此时已能判定无 chip 并收起；
+         脱离 DOM 的节点自行派发事件不会再冒泡，故事件挂在父行上 */
+      var parent = chip.parentNode;
+      if (parent) {
+        parent.removeChild(chip);
+        parent.dispatchEvent(new CustomEvent('attach:remove', {
+          bubbles: true,
+          detail: { name: name, type: type }
+        }));
+      }
+    });
+    return chip;
+  }
+
+  function init(root) {
+    if (!root || root.__dsAttachInit) return;
+    root.__dsAttachInit = true;
+    root.addEventListener('attach:remove', function () {
+      if (!root.querySelector('.ds-attach-chip')) root.hidden = true;
+    });
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="attachment-chip"]'),
+      init
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSAttachmentChip = {
+    create: create,
+    iconFor: iconFor,
+    typeFromName: typeFromName,
+    initRow: init
+  };
+})();
+
+/* ===== [复制区] 依赖组件 JS：voice-button（随本组件一并复制） ===== */
+/* voice-button —— CP-20 三态定时模拟；唯一红色为 12px 录音红点 */
+(function () {
+  'use strict';
+
+  var RECORD_MS = 1600;
+  var TRANSCRIBE_MS = 800;
+
+  function setIcon(btn, name, spinner) {
+    var svg = btn.querySelector('svg');
+    if (!svg) return;
+    var useEl = svg.querySelector('use');
+    if (useEl) useEl.setAttribute('href', '#i-' + name);
+    svg.classList.toggle('ds-voice__spinner', !!spinner);
+  }
+
+  function init(btn, opts) {
+    if (!btn || btn.__dsVoiceInit) return btn && btn.__dsVoiceApi;
+    btn.__dsVoiceInit = true;
+    opts = opts || {};
+    var state = 'idle';
+    var enabled = true;
+    var timers = [];
+    var dot = null;
+
+    function clearTimers() {
+      timers.forEach(clearTimeout);
+      timers = [];
+    }
+
+    function render() {
+      btn.setAttribute('data-state', state);
+      btn.disabled = !enabled || state === 'transcribing';
+      var oldDot = btn.querySelector('.ds-voice__dot');
+      if (oldDot) oldDot.parentNode.removeChild(oldDot);
+      dot = null;
+      if (state === 'idle') {
+        setIcon(btn, 'mic', false);
+        btn.setAttribute('aria-label', '语音输入');
+      } else if (state === 'recording') {
+        setIcon(btn, 'stop', false);
+        dot = document.createElement('span');
+        dot.className = 'ds-voice__dot';
+        dot.setAttribute('aria-hidden', 'true');
+        btn.appendChild(dot);
+        btn.setAttribute('aria-label', '结束录音');
+      } else {
+        setIcon(btn, 'circle', true);
+        btn.setAttribute('aria-label', '转写中');
+      }
+    }
+
+    function finishTranscript() {
+      state = 'idle';
+      render();
+      if (typeof opts.onTranscript === 'function') {
+        opts.onTranscript(opts.transcriptText || '');
+      }
+    }
+
+    function stopRecording() {
+      if (state !== 'recording') return;
+      clearTimers();
+      state = 'transcribing';
+      render();
+      timers.push(setTimeout(finishTranscript, TRANSCRIBE_MS));
+    }
+
+    function startRecording() {
+      if (!enabled) return;
+      state = 'recording';
+      render();
+      timers.push(setTimeout(stopRecording, RECORD_MS));
+    }
+
+    btn.addEventListener('click', function () {
+      if (!enabled) return;
+      if (state === 'idle') startRecording();
+      else if (state === 'recording') stopRecording();
+    });
+
+    function onKey(e) {
+      if (e.key === 'Escape' && state === 'recording') stopRecording();
+    }
+    document.addEventListener('keydown', onKey);
+
+    var api = {
+      setState: function (s) { state = s; render(); },
+      setEnabled: function (v) {
+        enabled = !!v;
+        if (!enabled) { clearTimers(); state = 'idle'; }
+        render();
+      },
+      stop: stopRecording
+    };
+    btn.__dsVoiceApi = api;
+    render();
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="voice-button"]'),
+      function (btn) {
+        init(btn, {
+          transcriptText: btn.getAttribute('data-transcript') || '',
+          onTranscript: function (text) {
+            var ta = document.querySelector('[data-voice-target]');
+            if (ta) {
+              ta.value = text;
+              ta.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          }
+        });
+      }
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSVoiceButton = { init: init };
+})();
+
+/* ===== [复制区] 依赖组件 JS：model-switcher（随本组件一并复制） ===== */
+/* model-switcher —— 单选弹层（DSPopoverMenu）+ localStorage 记忆（CP-17/18/19） */
+(function () {
+  'use strict';
+
+  var STORE_KEY = 'ds.chat-workbench.model';
+
+  function readSeed(trigger) {
+    var holder = trigger.parentNode;
+    var script = holder && holder.querySelector('script[data-model-seed]');
+    if (!script) return [];
+    try { return JSON.parse(script.textContent); } catch (e) { return []; }
+  }
+
+  function currentName(trigger, models) {
+    var stored = null;
+    try { stored = localStorage.getItem(STORE_KEY); } catch (e) { stored = null; }
+    if (stored && models.some(function (m) { return m.name === stored; })) return stored;
+    var name = trigger.querySelector('.ds-model-switch__name').textContent.trim();
+    return models.some(function (m) { return m.name === name; }) ? name : (models[0] && models[0].name) || name;
+  }
+
+  function init(trigger, opts) {
+    if (!trigger) return null;
+    if (trigger.__dsModelInit) return trigger.__dsModelApi || null;
+    trigger.__dsModelInit = true;
+    opts = opts || {};
+    var models = opts.models || readSeed(trigger);
+    var nameEl = trigger.querySelector('.ds-model-switch__name');
+    var current = currentName(trigger, models);
+    nameEl.textContent = current;
+
+    trigger.addEventListener('click', function () {
+      if (trigger.disabled) return;
+      var items = models.map(function (m) {
+        return {
+          label: m.name,
+          desc: m.desc || '',
+          twoLine: !!m.desc,
+          checked: m.name === current,
+          action: m.name,
+          name: m.name
+        };
+      });
+      window.DSPopoverMenu.open({
+        anchor: trigger,
+        align: 'left',
+        items: items,
+        onSelect: function (action, item) {
+          if (!item || !item.name || item.name === current) return;
+          current = item.name;
+          nameEl.textContent = current;
+          try { localStorage.setItem(STORE_KEY, current); } catch (e) {}
+          document.dispatchEvent(new CustomEvent('model:change', {
+            detail: { name: current }
+          }));
+        }
+      });
+    });
+
+    var api = {
+      getName: function () { return current; },
+      setDisabled: function (v) { trigger.disabled = !!v; }
+    };
+    trigger.__dsModelApi = api;
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="model-switcher"]'),
+      function (t) { init(t); }
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSModelSwitcher = { init: init, STORE_KEY: STORE_KEY };
+})();
+
+/* ===== [复制区] 依赖组件 JS：mention-popover（随本组件一并复制） ===== */
+/* mention-popover —— @ 提及浮层（CP-13/14/15/16）；独立实现，不复刻 popover-menu JS */
+(function () {
+  'use strict';
+
+  var GROUPS = [
+    { key: 'file', title: '文件', icon: 'file-text' },
+    { key: 'kb', title: '知识库', icon: 'hash' },
+    { key: 'agent', title: '智能体', icon: 'bot' }
+  ];
+
+  function readSeed(scope) {
+    var script = scope.querySelector
+      ? scope.querySelector('script[data-mention-seed]')
+      : document.querySelector('script[data-mention-seed]');
+    if (!script) return {};
+    try { return JSON.parse(script.textContent); } catch (e) { return {}; }
+  }
+
+  function buildRoot() {
+    var root = document.createElement('div');
+    root.className = 'ds-mention';
+    root.setAttribute('role', 'listbox');
+    root.hidden = true;
+    document.body.appendChild(root);
+    return root;
+  }
+
+  function bind(textarea, groups, scope) {
+    groups = groups || readSeed(scope || textarea.parentNode);
+    var root = buildRoot();
+    var open = false;
+    var enabled = true;
+    var tokenStart = -1;
+    var query = '';
+    var flat = [];
+    var focusIdx = -1;
+
+    function filteredNames(list) {
+      if (!query) return list.slice(0, 8);
+      var q = query.toLowerCase();
+      return list.filter(function (n) {
+        return n.toLowerCase().indexOf(q) >= 0;
+      }).slice(0, 8);
+    }
+
+    function render() {
+      flat = [];
+      root.innerHTML = '';
+      GROUPS.forEach(function (g) {
+        var names = filteredNames(groups[g.key] || []);
+        if (!names.length) return;
+        var wrap = document.createElement('div');
+        wrap.className = 'ds-mention__group';
+        var title = document.createElement('span');
+        title.className = 'ds-mention__group-title';
+        title.textContent = g.title;
+        wrap.appendChild(title);
+        names.forEach(function (name) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ds-mention__item';
+          btn.setAttribute('role', 'option');
+          btn.setAttribute('aria-selected', 'false');
+          btn.innerHTML =
+            '<svg class="ds-icon ds-mention__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-' + g.icon + '"></use></svg>' +
+            '<span class="ds-mention__label"></span>';
+          btn.querySelector('.ds-mention__label').textContent = name;
+          btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+          btn.addEventListener('click', function () { pick(name); });
+          wrap.appendChild(btn);
+          flat.push({ el: btn, name: name });
+        });
+        root.appendChild(wrap);
+      });
+      if (!flat.length) {
+        close();
+        return;
+      }
+      setFocus(0);
+    }
+
+    function setFocus(i) {
+      if (!flat.length) return;
+      focusIdx = (i + flat.length) % flat.length;
+      flat.forEach(function (it, idx) {
+        var on = idx === focusIdx;
+        it.el.classList.toggle('is-focused', on);
+        it.el.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on) it.el.scrollIntoView({ block: 'nearest' });
+      });
+    }
+
+    function detect() {
+      if (!enabled) { close(); return; }
+      var caret = textarea.selectionStart;
+      if (caret !== textarea.selectionEnd) { close(); return; }
+      var before = textarea.value.slice(0, caret);
+      var m = /(^|\s)@([^\s@]*)$/.exec(before);
+      if (!m) { close(); return; }
+      tokenStart = caret - m[2].length - 1;
+      query = m[2];
+      render();
+      if (flat.length) show(); /* render 在 hidden 态重建，命中后再定位显层 */
+    }
+
+    function position() {
+      var rect = textarea.getBoundingClientRect();
+      root.hidden = false;
+      var h = root.offsetHeight;
+      var top = rect.top - h - 8;
+      if (top < 8) top = rect.bottom + 8;
+      var left = rect.left + 4;
+      var maxLeft = window.innerWidth - root.offsetWidth - 8;
+      if (left > maxLeft) left = maxLeft;
+      if (left < 8) left = 8;
+      root.style.top = top + 'px';
+      root.style.left = left + 'px';
+    }
+
+    function show() {
+      position();
+      open = true;
+    }
+
+    function close() {
+      root.hidden = true;
+      open = false;
+      focusIdx = -1;
+      tokenStart = -1;
+      query = '';
+    }
+
+    function pick(name) {
+      var caret = textarea.selectionStart;
+      textarea.focus();
+      textarea.setRangeText('@' + name + ' ', tokenStart, caret, 'end');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      close();
+    }
+
+    function isOpen() { return open; }
+
+    function onInput() { detect(); }
+
+    function onKeyDown(e) {
+      if (!open) {
+        if (e.key === '@') setTimeout(detect, 0);
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        setFocus(focusIdx + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        setFocus(focusIdx - 1);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (flat[focusIdx]) pick(flat[focusIdx].name);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      }
+    }
+
+    function onPointerDown(e) {
+      if (open && !root.contains(e.target) && e.target !== textarea) close();
+    }
+
+    function onBlur() {
+      if (open) setTimeout(function () {
+        if (document.activeElement !== textarea && !root.contains(document.activeElement)) close();
+      }, 120);
+    }
+
+    textarea.addEventListener('input', onInput);
+    textarea.addEventListener('keydown', onKeyDown, true);
+    textarea.addEventListener('blur', onBlur);
+    document.addEventListener('pointerdown', onPointerDown, true);
+
+    return {
+      isOpen: isOpen,
+      close: close,
+      setEnabled: function (v) {
+        enabled = !!v;
+        if (!enabled) close();
+      },
+      destroy: function () {
+        close();
+        textarea.removeEventListener('input', onInput);
+        textarea.removeEventListener('keydown', onKeyDown, true);
+        textarea.removeEventListener('blur', onBlur);
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        if (root.parentNode) root.parentNode.removeChild(root);
+      }
+    };
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-mention-input]'),
+      function (ta) { bind(ta, null, ta.parentNode); }
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSMentionPopover = { bind: bind };
+})();
+
+/* ===== [复制区] 组件 JS 开始：composer ===== */
+/* composer —— CP-3/4/5/6/7/8/9/11/25 主控；加号菜单状态机移植自 starter */
+(function () {
+  'use strict';
+
+  var DRAFT_PREFIX = 'ds.chat-workbench.draft.';
+  var MENU_GAP = 8, SUB_GAP = 4, EDGE = 8, HOVER_DELAY = 120;
+  var MAX_LINES = 8;
+
+  function forRoot(root) {
+    if (!root || root.__dsComposerApi) return root && root.__dsComposerApi;
+
+    var ta = root.querySelector('.ds-composer__textarea');
+    var row = root.querySelector('.ds-attach-row');
+    var plus = root.querySelector('.ds-composer__plus');
+    var voiceBtn = root.querySelector('.ds-composer__voice');
+    var modelBtn = root.querySelector('.ds-model-switch');
+    var send = root.querySelector('.ds-composer__send');
+    var fileInput = root.querySelector('.ds-composer__file');
+    var menu = root.querySelector('.ds-plus-menu');
+    var conversationId = root.getAttribute('data-conversation-id') || 'default';
+    var generating = false;
+    var composing = false;
+    var draftTimer = null;
+
+    /* ---------- autosize（CP-3：1–8 行，超出框内滚动） ---------- */
+    var lineH = parseFloat(getComputedStyle(ta).lineHeight);
+    var padV = parseFloat(getComputedStyle(ta).paddingTop) +
+               parseFloat(getComputedStyle(ta).paddingBottom);
+    var minH = lineH + padV;
+    var maxH = lineH * MAX_LINES + padV;
+    function autosize() {
+      ta.style.height = 'auto';
+      var h = ta.scrollHeight;
+      if (h < minH) h = minH;
+      if (h > maxH) h = maxH;
+      ta.style.height = h + 'px';
+    }
+
+    /* ---------- 草稿（CP-9） ---------- */
+    function draftKey() { return DRAFT_PREFIX + conversationId; }
+    function saveDraft() {
+      try {
+        if (ta.value) localStorage.setItem(draftKey(), ta.value);
+        else localStorage.removeItem(draftKey());
+      } catch (e) {}
+    }
+    function scheduleDraft() {
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(saveDraft, 300);
+    }
+    function restoreDraft() {
+      var v = '';
+      try { v = localStorage.getItem(draftKey()) || ''; } catch (e) { v = ''; }
+      ta.value = v;
+      autosize();
+      syncSend();
+    }
+
+    /* ---------- 发送条件 / 发送（CP-5/6） ---------- */
+    function attachments() {
+      return Array.prototype.map.call(row.querySelectorAll('.ds-attach-chip'), function (c) {
+        var nameEl = c.querySelector('.ds-attach-chip__name');
+        return { name: nameEl ? nameEl.textContent : '', type: c.getAttribute('data-type') || 'file' };
+      });
+    }
+    function canSend() {
+      return ta.value.trim().length > 0 || row.querySelector('.ds-attach-chip');
+    }
+    function syncSend() {
+      if (!generating) send.disabled = !canSend();
+    }
+    function submit() {
+      if (generating) return;
+      var text = ta.value.trim();
+      var files = attachments();
+      if (!text && !files.length) return;
+      document.dispatchEvent(new CustomEvent('conversation:submit', {
+        detail: { text: text, attachments: files }
+      }));
+      ta.value = '';
+      row.innerHTML = '';
+      row.hidden = true;
+      try { localStorage.removeItem(draftKey()); } catch (e) {}
+      autosize();
+      syncSend();
+      ta.focus();
+    }
+
+    /* ---------- 生成态矩阵（CP-7/8） ---------- */
+    var voiceApi = window.DSVoiceButton.init(voiceBtn, {
+      transcriptText: voiceBtn.getAttribute('data-transcript') || '',
+      onTranscript: function (text) {
+        if (!text || generating) return;
+        var pos = ta.selectionStart;
+        var needSpace = pos > 0 && ta.value.charAt(pos - 1) !== ' ' && ta.value.charAt(pos - 1) !== '\n';
+        ta.setRangeText((needSpace ? ' ' : '') + text, pos, pos, 'end');
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    var modelApi = window.DSModelSwitcher.init(modelBtn);
+
+    var mentionSeed = root.querySelector('script[data-mention-seed]');
+    var mentionGroups = {};
+    if (mentionSeed) {
+      try { mentionGroups = JSON.parse(mentionSeed.textContent); } catch (e) { mentionGroups = {}; }
+    }
+    var mention = window.DSMentionPopover.bind(ta, mentionGroups, root);
+    window.DSAttachmentChip.initRow(row);
+    /* 移除附件后同步发送态（CP-11：无文字且无 chip 时必须禁用发送） */
+    row.addEventListener('attach:remove', syncSend);
+
+    function setGenerating(g) {
+      generating = !!g;
+      ta.readOnly = generating;
+      plus.disabled = generating;
+      if (voiceApi) voiceApi.setEnabled(!generating);
+      if (modelApi) modelApi.setDisabled(generating);
+      mention.setEnabled(!generating);
+      var useEl = send.querySelector('use');
+      if (useEl) useEl.setAttribute('href', generating ? '#i-stop' : '#i-send');
+      send.setAttribute('aria-label', generating ? '停止生成' : '发送');
+      send.disabled = generating ? false : !canSend();
+    }
+
+    /* ---------- textarea 事件 ---------- */
+    ta.addEventListener('input', function () {
+      autosize();
+      syncSend();
+      scheduleDraft();
+    });
+    ta.addEventListener('compositionstart', function () { composing = true; });
+    ta.addEventListener('compositionend', function () { composing = false; });
+    ta.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      if (composing || e.isComposing || e.keyCode === 229) return; /* CP-4/X4 */
+      e.preventDefault();
+      if (!generating) submit(); /* CP-7：生成中 Enter 不发送也不停止 */
+    });
+
+    send.addEventListener('click', function () {
+      if (generating) {
+        document.dispatchEvent(new CustomEvent('generation:stop', { detail: {} }));
+      } else {
+        submit();
+      }
+    });
+
+    /* ---------- 附件隐藏内核（CP-11/X3） ---------- */
+    fileInput.addEventListener('change', function () {
+      Array.prototype.forEach.call(fileInput.files || [], function (f) {
+        var chip = window.DSAttachmentChip.create({
+          name: f.name,
+          type: window.DSAttachmentChip.typeFromName(f.name)
+        });
+        row.appendChild(chip);
+      });
+      row.hidden = !row.querySelector('.ds-attach-chip');
+      fileInput.value = '';
+      syncSend();
+    });
+
+    /* ---------- CP-25 加号收纳菜单（搬 body/fixed、级联、键盘、关闭回焦） ---------- */
+    var subs = {};
+    Array.prototype.forEach.call(root.querySelectorAll('.ds-plus-sub'), function (s) {
+      subs[s.getAttribute('data-plus-panel')] = s;
+      document.body.appendChild(s);
+    });
+    document.body.appendChild(menu);
+    var menuOpen = false, currentSub = null, hoverTimer = null;
+    /* ←/Esc 从二级面板回焦 opener 时，短暂抑制 opener 的 focusin 自动展开，
+       否则键盘返回会被立即重开的面板吞掉（指针 hover 路径不受影响） */
+    var suppressSubOpenUntil = 0;
+
+    function itemList(container) {
+      return Array.prototype.filter.call(
+        container.querySelectorAll('.ds-plus-menu__item'),
+        function (b) { return b.offsetParent !== null || b === document.activeElement; }
+      );
+    }
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+    function placeMenu() {
+      var r = plus.getBoundingClientRect();
+      menu.hidden = false;
+      var mw = menu.offsetWidth, mh = menu.offsetHeight;
+      var left = clamp(r.left, EDGE, window.innerWidth - mw - EDGE);
+      var top = r.top - mh - MENU_GAP;
+      if (top < EDGE) top = r.bottom + MENU_GAP;
+      menu.style.left = left + 'px';
+      menu.style.top = Math.min(top, window.innerHeight - mh - EDGE) + 'px';
+    }
+    function resetOpeners() {
+      Array.prototype.forEach.call(menu.querySelectorAll('[data-plus-sub]'), function (b) {
+        b.setAttribute('aria-expanded', 'false');
+      });
+    }
+    function placeSub(name, anchor) {
+      var sub = subs[name];
+      if (!sub) return;
+      Object.keys(subs).forEach(function (k) { if (k !== name) subs[k].hidden = true; });
+      resetOpeners();
+      sub.hidden = false;
+      var sw = sub.offsetWidth, sh = sub.offsetHeight;
+      var mr = menu.getBoundingClientRect(), ar = anchor.getBoundingClientRect();
+      var left = mr.right + SUB_GAP;
+      if (left + sw > window.innerWidth - EDGE) left = mr.left - sw - SUB_GAP;
+      left = clamp(left, EDGE, window.innerWidth - sw - EDGE);
+      var top = clamp(ar.top, EDGE, window.innerHeight - sh - EDGE);
+      sub.style.left = left + 'px';
+      sub.style.top = top + 'px';
+      currentSub = name;
+      anchor.setAttribute('aria-expanded', 'true');
+    }
+    function closeSub(focusBack) {
+      clearTimeout(hoverTimer);
+      if (!currentSub) return;
+      var name = currentSub;
+      subs[name].hidden = true;
+      var opener = menu.querySelector('[data-plus-sub="' + name + '"]');
+      if (opener) opener.setAttribute('aria-expanded', 'false');
+      currentSub = null;
+      if (focusBack && opener) {
+        suppressSubOpenUntil = Date.now() + 200;
+        opener.focus();
+      }
+    }
+    function openMenu() {
+      menuOpen = true;
+      plus.setAttribute('aria-expanded', 'true');
+      placeMenu();
+      var first = itemList(menu)[0];
+      if (first) first.focus();
+    }
+    function closeAll(returnFocus) {
+      if (!menuOpen) return;
+      menuOpen = false;
+      closeSub(false);
+      menu.hidden = true;
+      plus.setAttribute('aria-expanded', 'false');
+      if (returnFocus) ta.focus();
+    }
+    function openSubAndFocus(name, anchor) {
+      placeSub(name, anchor);
+      var first = itemList(subs[name])[0];
+      if (first) first.focus();
+    }
+    function moveFocus(container, dir) {
+      var items = itemList(container);
+      if (!items.length) return;
+      var i = items.indexOf(document.activeElement);
+      var n = i < 0 ? (dir > 0 ? 0 : items.length - 1) : (i + dir + items.length) % items.length;
+      items[n].focus();
+    }
+    function invokeLeaf(action) {
+      closeAll(true);
+      if (action === 'attachment') {
+        fileInput.click(); /* CP-11：隐藏内核 */
+      } else if (action === 'add-context') {
+        /* 经加号唤起 @ 提及（CP-13）：在光标处补 @，由输入监听打开浮层 */
+        var pos = ta.selectionStart;
+        var needSpace = pos > 0 && ta.value.charAt(pos - 1) !== ' ' && ta.value.charAt(pos - 1) !== '\n';
+        ta.setRangeText((needSpace ? ' @' : '@'), pos, pos, 'end');
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      /* invoke / 各二级叶子：P9 占位，仅关闭回焦（CP-25.3 / CP-X7） */
+    }
+
+    plus.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (plus.disabled) return;
+      if (menuOpen) { closeAll(false); plus.focus(); } else { openMenu(); }
+    });
+
+    Array.prototype.forEach.call(menu.querySelectorAll('[data-plus-sub]'), function (item) {
+      var name = item.getAttribute('data-plus-sub');
+      item.addEventListener('pointerenter', function () {
+        clearTimeout(hoverTimer);
+        if (currentSub !== name) placeSub(name, item);
+      });
+      item.addEventListener('focusin', function () {
+        clearTimeout(hoverTimer);
+        if (Date.now() < suppressSubOpenUntil) return;
+        if (currentSub !== name) placeSub(name, item);
+      });
+    });
+    menu.addEventListener('pointerleave', function () {
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(function () { closeSub(false); }, HOVER_DELAY);
+    });
+    Object.keys(subs).forEach(function (k) {
+      var sub = subs[k];
+      sub.addEventListener('pointerenter', function () { clearTimeout(hoverTimer); });
+      sub.addEventListener('pointerleave', function () {
+        clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(function () { if (currentSub === k) closeSub(false); }, HOVER_DELAY);
+      });
+    });
+
+    menu.addEventListener('click', function (e) {
+      var item = e.target.closest && e.target.closest('.ds-plus-menu__item');
+      if (!item || !menu.contains(item)) return;
+      var name = item.getAttribute('data-plus-sub');
+      if (name) { openSubAndFocus(name, item); return; }
+      invokeLeaf(item.getAttribute('data-plus-action'));
+    });
+
+    menu.addEventListener('keydown', function (e) {
+      var item = e.target.closest && e.target.closest('.ds-plus-menu__item');
+      switch (e.key) {
+        case 'ArrowDown': e.preventDefault(); moveFocus(menu, 1); break;
+        case 'ArrowUp': e.preventDefault(); moveFocus(menu, -1); break;
+        case 'Home': e.preventDefault(); var f0 = itemList(menu)[0]; if (f0) f0.focus(); break;
+        case 'End': e.preventDefault(); var l0 = itemList(menu).pop(); if (l0) l0.focus(); break;
+        case 'ArrowRight':
+          if (item && item.getAttribute('data-plus-sub')) {
+            e.preventDefault();
+            openSubAndFocus(item.getAttribute('data-plus-sub'), item);
+          }
+          break;
+        case 'Enter':
+          if (item && item.getAttribute('data-plus-sub')) {
+            e.preventDefault();
+            openSubAndFocus(item.getAttribute('data-plus-sub'), item);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault(); closeAll(false); plus.focus(); break;
+        case 'Tab':
+          closeAll(false); break;
+      }
+    });
+
+    Object.keys(subs).forEach(function (k) {
+      var sub = subs[k];
+      sub.addEventListener('keydown', function (e) {
+        switch (e.key) {
+          case 'ArrowDown': e.preventDefault(); moveFocus(sub, 1); break;
+          case 'ArrowUp': e.preventDefault(); moveFocus(sub, -1); break;
+          case 'ArrowLeft':
+          case 'Escape':
+            e.preventDefault(); closeSub(true); break;
+          case 'Tab':
+            closeAll(false); break;
+        }
+      });
+      sub.addEventListener('click', function (e) {
+        var item = e.target.closest && e.target.closest('.ds-plus-menu__item');
+        if (item && sub.contains(item)) invokeLeaf(item.getAttribute('data-plus-action'));
+      });
+    });
+
+    document.addEventListener('pointerdown', function (e) {
+      if (!menuOpen) return;
+      if (plus.contains(e.target) || menu.contains(e.target)) return;
+      if (currentSub && subs[currentSub].contains(e.target)) return;
+      closeAll(false);
+    }, true);
+    document.addEventListener('focusin', function (e) {
+      if (!menuOpen) return;
+      if (plus.contains(e.target) || menu.contains(e.target)) return;
+      if (currentSub && subs[currentSub].contains(e.target)) return;
+      closeAll(false);
+    });
+    window.addEventListener('resize', function () { closeAll(false); });
+    window.addEventListener('scroll', function () { closeAll(false); }, true);
+
+    /* ---------- 外部联动 ---------- */
+    document.addEventListener('composer:prefill', function (e) {
+      var d = e.detail || {};
+      if (d.conversationId && d.conversationId !== conversationId) return;
+      ta.value = d.text || '';
+      autosize();
+      syncSend();
+      if (d.autosubmit) submit();
+    });
+
+    /* ---------- 初始化 ---------- */
+    autosize();
+    restoreDraft();
+
+    var api = {
+      setGenerating: setGenerating,
+      setConversation: function (id) {
+        clearTimeout(draftTimer);
+        saveDraft();
+        conversationId = id || 'default';
+        root.setAttribute('data-conversation-id', conversationId);
+        row.innerHTML = '';
+        row.hidden = true;
+        restoreDraft();
+      },
+      addAttachment: function (file) {
+        var chip = window.DSAttachmentChip.create(file);
+        row.appendChild(chip);
+        row.hidden = false;
+        syncSend();
+      },
+      submit: submit
+    };
+    root.__dsComposerApi = api;
+    return api;
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="composer"]'),
+      function (r) { forRoot(r); }
+    );
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSComposer = { forRoot: forRoot };
+})();
+/* ===== [复制区] 组件 JS 结束：composer ===== */
+</script>
+<script>
+/* —— 演示外壳脚本（禁止复制进交付物）—— */
+document.getElementById('demo-theme').addEventListener('click', () => {
+  const el = document.documentElement;
+  el.dataset.theme = el.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+
+
+</script>
+</body>
+</html>

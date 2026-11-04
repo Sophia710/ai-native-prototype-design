@@ -1,0 +1,2188 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>workbench-starter（新建会话） · chat-workbench</title>
+<!--
+  本文件是 chat-workbench 模块【新建会话页】可整页复制的壳层骨架（模板模式）：
+  - 三栏几何/展收/拖拽/记忆来自 workbench-shell 组件（已内联）；
+  - data-stage="welcome"：greeting + composer + 建议 chips 整体垂直居中；
+    首条消息发送后切 data-stage="chatting"，composer 以 transform 平滑下沉贴底（CP-22）；
+  - 新建态无产物，右栏默认关闭（WS-14）；
+  - t-* 类元素仅为占位：左栏=P7、中栏 header/消息=P8、输入区=P9、右栏=P10，
+    组装时用 modules/chat-workbench/components/ 的实物逐区替换，占位样式随之删除；
+  - 保留下划线大写槽位是模板模式的合法状态（audit-slots --template 豁免）；
+    交付原型必须替换全部 required 槽位。
+-->
+<style>
+/*
+ * AI 原生原型设计 — 设计令牌（CSS 变量）
+ * 由 tokens/tokens.json 生成，请勿手工维护本文件；修改令牌请改 tokens.json。
+ * 组件只允许引用 var(--ds-*)，禁止裸值。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 文字 */
+  --ds-text-primary: #1F1F1F;
+  --ds-text-secondary: #595959;
+  --ds-text-tertiary: #787878;
+  --ds-text-quaternary: #B3B3B3;
+  --ds-on-primary: #FFFFFF;
+
+  /* 表面 */
+  --ds-surface: #FFFFFF;
+  --ds-surface-muted: #F7F7F7;
+  --ds-surface-raised: #FFFFFF;
+  --ds-surface-strong: #F0F0F0;
+
+  /* 结构 */
+  --ds-border: #E5E5E5;
+  --ds-border-strong: #D4D4D4;
+  --ds-divider: #EBEBEB;
+
+  /* 交互中性态（灰阶，不是蓝） */
+  --ds-hover-fill: rgba(0, 0, 0, 0.04);
+  --ds-active-fill: rgba(0, 0, 0, 0.08);
+  --ds-scrim: rgba(0, 0, 0, 0.45);
+
+  /* 语义色 */
+  --ds-color-danger: #DC2626;
+  --ds-on-danger: #FFFFFF;
+  --ds-color-positive: #16A34A;
+  --ds-color-warning: #B45309;
+
+  /* 强调蓝：仅数据可视化与真实语义 */
+  --ds-color-accent: #2563EB;
+  --ds-on-accent: #FFFFFF;
+
+  /* 图表系列 */
+  --ds-chart-1: #2563EB;
+  --ds-chart-2: #DC2626;
+  --ds-chart-3: #16A34A;
+  --ds-chart-4: #7C3AED;
+  --ds-chart-5: #8C8C8C;
+
+  /* 间距阶 4/8/12/16/20/24/32 */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 32px;
+
+  /* 圆角阶 */
+  --ds-radius-small: 4px;
+  --ds-radius-chip: 6px;
+  --ds-radius-button: 8px;
+  --ds-radius-input: 10px;
+  --ds-radius-panel: 12px;
+  --ds-radius-large: 16px;
+  --ds-radius-full: 9999px;
+
+  /* 动效 */
+  --ds-t-micro: 80ms;
+  --ds-t-fast: 120ms;
+  --ds-t-normal: 200ms;
+  --ds-t-slow: 300ms;
+  --ds-t-spin: 1s;
+  --ds-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ds-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 字体 */
+  --ds-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --ds-font-serif: Georgia, "Songti SC", "SimSun", serif;
+
+  /* 排版 */
+  --ds-fs-caption: 12px;
+  --ds-lh-caption: 18px;
+  --ds-fs-compact: 14px;
+  --ds-lh-compact: 22px;
+  --ds-fs-body: 16px;
+  --ds-lh-body: 24px;
+  --ds-fs-title: 17px;
+  --ds-lh-title: 26px;
+  --ds-fs-page: 20px;
+  --ds-lh-page: 28px;
+  --ds-fs-display: 32px;
+  --ds-lh-display: 1.2;
+  --ds-weight-regular: 400;
+  --ds-weight-medium: 500;
+
+  /* 阴影与焦点环 */
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --ds-focus-ring: 0 0 0 2px rgba(31, 31, 31, 0.35);
+
+  /* 壳层几何 */
+  --ds-left-width: 260px;
+  --ds-left-min: 240px;
+  --ds-left-max: 320px;
+  --ds-right-width: 480px;
+  --ds-right-min: 320px;
+  --ds-right-max: 720px;
+  --ds-center-min: 360px;
+  --ds-touch-target: 44px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ds-text-primary: #F5F5F5;
+  --ds-text-secondary: #B8B8B8;
+  --ds-text-tertiary: #8C8C8C;
+  --ds-text-quaternary: #595959;
+  --ds-on-primary: #1A1A1A;
+
+  --ds-surface: #1A1A1A;
+  --ds-surface-muted: #222222;
+  --ds-surface-raised: #242424;
+  --ds-surface-strong: #2E2E2E;
+
+  --ds-border: rgba(255, 255, 255, 0.12);
+  --ds-border-strong: rgba(255, 255, 255, 0.20);
+  --ds-divider: rgba(255, 255, 255, 0.08);
+
+  --ds-hover-fill: rgba(255, 255, 255, 0.06);
+  --ds-active-fill: rgba(255, 255, 255, 0.10);
+  --ds-scrim: rgba(0, 0, 0, 0.60);
+
+  --ds-color-danger: #F26D6D;
+  --ds-on-danger: #1A1A1A;
+  --ds-color-positive: #4CC38A;
+  --ds-color-warning: #F5B544;
+
+  --ds-color-accent: #60A5FA;
+  --ds-on-accent: #0B1B33;
+
+  --ds-chart-1: #60A5FA;
+  --ds-chart-2: #F87171;
+  --ds-chart-3: #4ADE80;
+  --ds-chart-4: #A78BFA;
+  --ds-chart-5: #8C8C8C;
+
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4);
+  --ds-focus-ring: 0 0 0 2px rgba(245, 245, 245, 0.45);
+}
+
+/* 盒模型统一 border-box：几何 token 表达含边框的完整盒 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 页面基色单点定义：只有 body 可以设置页面背景；组件内部不再设置基色 */
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-regular);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 本地字体重置：控件继承 sans，数字使用 tabular-nums */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+svg text {
+  font-family: var(--ds-font-sans);
+}
+
+.ds-number,
+[class*="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 图标统一渲染：1.8px 线性、currentColor、round；外层 svg 必须带 viewBox="0 0 24 24"，
+   尺寸由其 width/height 属性控制（16/18/20/24），否则 <use> 内 symbol 会按 24px 原尺寸溢出被裁 */
+.ds-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* 原生控件保持中性，不用浏览器默认蓝 */
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"],
+progress {
+  accent-color: var(--ds-text-primary);
+}
+
+/* 统一焦点环：深色，不用蓝；box-shadow 自动跟随元素自身圆角，不在此覆盖圆角 */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* 尊重减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== [复制区] 依赖组件 CSS：button / icon-button ===== */
+/* button —— 基础按钮：颜色强调只用深色，灰阶承担交互态 */
+[data-component="button"] {
+  /* 组件自身无包裹样式；.ds-btn 为复制后使用的根类 */
+}
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--ds-space-4);
+  margin: 0;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background-color: var(--ds-surface-raised);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    border-color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-btn:hover {
+  background-color: var(--ds-surface-strong);
+  border-color: var(--ds-border-strong);
+}
+
+.ds-btn:active {
+  background-color: var(--ds-surface-strong);
+}
+
+.ds-btn .ds-icon {
+  flex: none;
+}
+
+/* primary：深色实底；hover/active 用主题感知的中性叠加层（浅=压黑，深=提白） */
+.ds-btn--primary {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--primary:hover {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--primary:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* ghost：无底无框，仅 hover 显露灰底 */
+.ds-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.ds-btn--ghost:hover {
+  background-color: var(--ds-hover-fill);
+  border-color: transparent;
+}
+
+.ds-btn--ghost:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* danger：危险实底，仅用于删除等破坏性主动作 */
+.ds-btn--danger {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  color: var(--ds-on-danger);
+}
+
+.ds-btn--danger:hover {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--danger:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* 尺寸 */
+.ds-btn--sm {
+  height: 28px;
+  padding: 0 var(--ds-space-3);
+  font-size: var(--ds-fs-caption);
+  border-radius: var(--ds-radius-chip);
+}
+
+/* 禁用：disabled 属性驱动，键盘不可达、不派发 click */
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background-image: none;
+}
+
+.ds-btn--primary:disabled,
+.ds-btn--danger:disabled {
+  background-color: var(--ds-text-quaternary);
+  border-color: var(--ds-text-quaternary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--ghost:disabled {
+  background-color: transparent;
+}
+
+.ds-btn--block {
+  display: flex;
+  width: 100%;
+}
+/* icon-button —— 视觉盒 24/32，命中区恒 44px（::before 向四周外扩，不占布局） */
+.ds-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background-color: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  flex: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+/* hidden 属性必须生效：本基元 display:inline-flex（作者样式）会压过 UA 的 [hidden]{display:none}，
+   不显式补回会导致"隐藏"按钮仍渲染（如壳层右栏互斥展收钮） */
+.ds-icon-btn[hidden] {
+  display: none;
+}
+
+/* 命中区外扩到触控下限：absolute 居中、不改变布局与视觉盒 */
+.ds-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: var(--ds-touch-target);
+  min-height: var(--ds-touch-target);
+  margin: auto;
+}
+
+.ds-icon-btn:hover {
+  background-color: var(--ds-hover-fill);
+  color: var(--ds-text-primary);
+}
+
+.ds-icon-btn:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* 选中/开关态：灰阶，不用彩色 */
+.ds-icon-btn.is-active,
+.ds-icon-btn[aria-pressed="true"] {
+  background-color: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+
+/* 置于填充区域内时的描边浅底变体 */
+.ds-icon-btn--subtle {
+  background-color: var(--ds-surface-muted);
+}
+
+.ds-icon-btn--subtle:hover {
+  background-color: var(--ds-surface-strong);
+}
+
+/* 小尺寸视觉盒（命中区仍 44）；圆角与 md 同档：规则映射 icon buttons 统一 8px */
+.ds-icon-btn--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-button);
+}
+
+.ds-icon-btn:disabled,
+.ds-icon-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+  background-color: transparent;
+  color: var(--ds-text-quaternary);
+}
+
+.ds-icon-btn .ds-icon {
+  flex: none;
+}
+/* ===== [复制区] 组件 CSS：workbench-shell ===== */
+/* workbench-shell —— 三栏几何；宽度由根上的 --shell-*-w 驱动，JS 只改这一个值 */
+.ds-shell {
+  --shell-left-w: var(--ds-left-width);
+  --shell-right-w: var(--ds-right-width);
+
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+}
+
+/* ---------- 左栏 ---------- */
+.ds-shell__left {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: var(--shell-left-w);
+  overflow: hidden;
+  background: var(--ds-surface);
+  border-right: 1px solid var(--ds-divider);
+  transition: width var(--ds-t-slow) var(--ds-ease-out);
+}
+
+/* 收起态：宽度归 0，不保留 rail 容器；唯一展开入口是中栏 header 的展收钮（WS-15） */
+.ds-shell[data-left="closed"] .ds-shell__left {
+  width: 0;
+  border-right-color: transparent;
+}
+
+.ds-shell__left-body {
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ds-shell[data-left="closed"] .ds-shell__left-body {
+  display: none;
+}
+
+/* ---------- 中栏 ---------- */
+.ds-shell__center {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--ds-surface);
+}
+
+.ds-shell__center-header,
+.ds-shell__right-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  height: calc(var(--ds-touch-target) + var(--ds-space-1));
+  padding: 0 var(--ds-space-2);
+  background: var(--ds-surface);
+  border-bottom: 1px solid var(--ds-divider);
+}
+
+.ds-shell__header-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ds-shell__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ds-shell__composer {
+  flex: 0 0 auto;
+  min-width: 0; /* CP-24：父链解除隐式最小宽度，保证 composer 随中栏收缩，内部控件不溢出 */
+  /* 不画顶部分隔线：WS 合同未约定（1px divider 仅 header 下沿 WS-3 与手柄 WS-8）；
+     与消息区的分隔由 P9 composer 实物自行决定，welcome 居中态有线会突兀 */
+  background: var(--ds-surface);
+}
+
+.ds-shell__right-open {
+  flex: none;
+}
+
+/* ---------- 拖拽手柄（8px 命中条骑在右栏 1px 分界线上） ---------- */
+.ds-shell__resize {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 8px;
+  margin-left: -4px;
+  margin-right: -4px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+  background-color: transparent;
+}
+
+.ds-shell__resize:hover,
+.ds-shell__resize:focus-visible {
+  background-color: var(--ds-hover-fill);
+}
+
+/* ---------- 右栏 ---------- */
+.ds-shell__right {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: var(--shell-right-w);
+  overflow: hidden;
+  background: var(--ds-surface);
+  border-left: 1px solid var(--ds-divider);
+  transition: width var(--ds-t-slow) var(--ds-ease-out);
+}
+
+.ds-shell[data-right="closed"] .ds-shell__right {
+  width: 0;
+  border-left-color: transparent;
+}
+
+.ds-shell[data-right="closed"] .ds-shell__resize {
+  display: none;
+}
+
+.ds-shell__right-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-shell__right-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* ---------- 状态：首帧不做恢复动画；拖拽中关过渡 ---------- */
+.ds-shell:not([data-ready="1"]) .ds-shell__left,
+.ds-shell:not([data-ready="1"]) .ds-shell__right {
+  transition: none;
+}
+
+.ds-shell--dragging .ds-shell__left,
+.ds-shell--dragging .ds-shell__right {
+  transition: none;
+}
+
+/* 拖拽期间：全局禁选文本；右栏内容不吞指针事件，杜绝 reflow 闪烁（WS-10/11） */
+body.ds-is-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+body.ds-is-resizing .ds-shell__right-scroll {
+  pointer-events: none;
+}
+
+body.ds-is-resizing .ds-shell__resize {
+  background-color: var(--ds-hover-fill);
+}
+
+/* ===== starter 占位样式（t-* 随 P7–P10 组件替换时删除） ===== */
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+/* ---------- 左栏（层级基线：组标题 12/tertiary；行 14/primary；无选中工具） ---------- */
+.t-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-1);
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+.t-brand__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-chip);
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+  flex: none;
+}
+.t-new { padding: var(--ds-space-1) var(--ds-space-3) var(--ds-space-3); }
+/* 新建会话：中性灰底强引导（不是黑底 primary；黑底留给发送/危险以外的深色强调位） */
+.t-new__btn {
+  background: var(--ds-surface-strong);
+  border-color: transparent;
+  color: var(--ds-text-primary);
+}
+.t-new__btn:hover {
+  background: var(--ds-active-fill);
+  border-color: transparent;
+}
+.t-left-stack { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+.t-tools { padding: 0 var(--ds-space-2) var(--ds-space-3); }
+.t-tools__title {
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1);
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+}
+.t-tools__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-size: var(--ds-fs-compact);
+  text-align: left;
+  cursor: pointer;
+}
+.t-tools__item:hover { background: var(--ds-hover-fill); }
+.t-tools__item.is-active { background: var(--ds-active-fill); }
+
+.t-history { flex: 1 1 auto; padding: var(--ds-space-1) var(--ds-space-2) 0; min-height: 0; }
+.t-history__title {
+  padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1);
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+}
+.t-history__empty {
+  padding: var(--ds-space-1) var(--ds-space-2);
+  font-size: var(--ds-fs-caption);
+  color: var(--ds-text-quaternary);
+}
+.t-user {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-top: 1px solid var(--ds-divider);
+  font-size: var(--ds-fs-compact);
+  color: var(--ds-text-primary);
+}
+.t-user__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+  font-size: var(--ds-fs-caption);
+  flex: none;
+}
+
+/* ---------- 中栏：welcome 居中 / chatting 沉底（同一 composer，只动 transform/opacity） ---------- */
+.t-composer-stage {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0; /* 允许随中栏收缩到任意窄宽，不被 composer 内容 min-content 撑宽（CP-24） */
+  box-sizing: border-box;
+  padding: 0 var(--ds-space-4) var(--ds-space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform var(--ds-t-slow) var(--ds-ease-out);
+}
+.ds-shell__center[data-stage="welcome"] .t-composer-stage {
+  /* 沉底文档流位置 → 视觉垂直居中（800 视口校准；几何只走合成层 transform） */
+  transform: translateY(-33vh);
+}
+.t-welcome__greeting {
+  margin: 0 0 var(--ds-space-6);
+  font-size: var(--ds-fs-display);
+  line-height: var(--ds-lh-display);
+  font-weight: var(--ds-weight-medium);
+  text-align: center;
+  transition: opacity var(--ds-t-fast) var(--ds-ease-out);
+}
+.t-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-3);
+  transition: opacity var(--ds-t-fast) var(--ds-ease-out);
+}
+.t-suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 32px;
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background: var(--ds-surface-raised);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  cursor: pointer;
+}
+.t-suggestion:hover { border-color: var(--ds-border-strong); background: var(--ds-surface-muted); }
+.t-suggestion .ds-icon { color: var(--ds-text-secondary); }
+
+/* chatting 态：greeting/chips 零占位淡出，组高收缩，composer 随 transform 归位沉底 */
+.ds-shell__center[data-stage="chatting"] .t-welcome__greeting,
+.ds-shell__center[data-stage="chatting"] .t-suggestions {
+  opacity: 0;
+  pointer-events: none;
+}
+.ds-shell__center[data-stage="chatting"] .t-welcome__greeting {
+  height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+.ds-shell__center[data-stage="chatting"] .t-suggestions {
+  height: 0;
+  margin-top: 0;
+  overflow: hidden;
+}
+
+/* 输入区占位（P9 composer 实物替换） */
+.t-composer {
+  width: 100%;
+  min-width: 0; /* CP-24：flex 子项默认 min-width:auto 会被工具栏 min-content 撑爆，必须显式允许收缩 */
+  box-sizing: border-box;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-input);
+  background: var(--ds-surface-raised);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  container-type: inline-size; /* CP-24：为极端窄宽的模型钮收起提供容器查询基准 */
+}
+/* 聚焦态不额外画框：外框常驻 1px --ds-border，focus-within 时边框不变深、不加 focus ring
+   （CP-1：输入区焦点由文本光标自身表达，避免选中后四周突兀出现第二圈框线） */
+.t-composer__textarea {
+  display: block;
+  width: 100%;
+  min-width: 0; /* CP-24：宽度自适应容器，长文本走原生软换行，不产生横向溢出 */
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: auto; /* 内容超过 8 行上限后框内纵向滚动，高度本身由 JS 钳制 */
+  max-height: calc(var(--ds-lh-body) * 8 + var(--ds-space-1) * 2); /* 最多 8 行：8*行高 + 上下 padding */
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  padding: var(--ds-space-1) 0;
+}
+/* CP-1：豁免 tokens.css 全局 :focus-visible 环（文本框点击必中 :focus-visible）；
+   类+伪类 (0,2,0) 压过全局 (0,1,0)，聚焦不画任何 outline/ring，焦点仅由文本光标表达 */
+.t-composer__textarea:focus,
+.t-composer__textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+/* CP-24 工具栏自适应（恒单行，发送钮始终钉右）：
+   - nowrap：flex 换行判定先于收缩，wrap 会让发送钮在省略号生效前就被折到次行，故禁折行
+   - min-width:0 解除隐式最小宽度后，收缩压力全部导向模型钮（文字省略号）
+   - 3 个 icon-btn 基类已 flex:none；发送钮显式 flex:none，恒占自身宽
+   - 极端窄宽（composer ≤240px，对应中栏约 298px，产品钳制下限 360 之外的纯兜底区）
+     由 @container 收起模型钮，保证任意宽度零溢出、不错位 */
+.t-composer__bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+.t-composer__model {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  flex: 0 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--ds-radius-button);
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  color: var(--ds-text-secondary);
+  font-size: var(--ds-fs-compact);
+  cursor: pointer;
+}
+.t-composer__model > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.t-composer__model:hover { background: var(--ds-hover-fill); color: var(--ds-text-primary); }
+.t-composer__spacer { flex: 1 1 0; min-width: 0; }
+.t-composer__send { flex: none; background: var(--ds-text-quaternary); border-color: transparent; color: var(--ds-on-primary); }
+.t-composer__send:enabled { background: var(--ds-text-primary); border-color: var(--ds-text-primary); }
+/* 兜底必须置于模型钮常规规则之后（同特异性源序后者胜）：composer ≤240px 收起模型钮 */
+@container (max-width: 240px) {
+  .t-composer__model { display: none; }
+}
+
+/* ---------- composer 加号收纳菜单（CP-25；卡面同 popover；JS 打开时搬至 body 后 fixed 定位） ---------- */
+.t-composer__plus[aria-expanded="true"] {
+  background-color: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+.t-plus-menu,
+.t-plus-sub {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  padding: var(--ds-space-1);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-surface-raised);
+  box-shadow: var(--ds-shadow-raised);
+}
+.t-plus-menu { width: 240px; }
+.t-plus-sub { width: 232px; }
+.t-plus-menu[hidden],
+.t-plus-sub[hidden] { display: none; }
+.t-plus-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-chip);
+  background: transparent;
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-regular);
+  /* 1.2 而非 1：label 带 overflow:hidden，1em 行盒会把占位槽位文案中下划线字符的下沿裁掉；
+     32px 固定高内 flex 居中，放宽行高不改变视觉高度 */
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.t-plus-menu__item:hover,
+.t-plus-menu__item.is-focused { background: var(--ds-active-fill); }
+.t-plus-menu__icon { flex: none; width: 18px; height: 18px; color: var(--ds-text-secondary); }
+.t-plus-menu__item:hover .t-plus-menu__icon,
+.t-plus-menu__item.is-focused .t-plus-menu__icon { color: var(--ds-text-primary); }
+.t-plus-menu__label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.t-plus-menu__caret { flex: none; width: 16px; height: 16px; color: var(--ds-text-tertiary); }
+.t-plus-menu__sep { height: 1px; margin: var(--ds-space-1) calc(2 * var(--ds-space-1)); background: var(--ds-divider); }
+/* 二级面板标题（如「可用插件」）：不可选的弱文案行 */
+.t-plus-sub__title {
+  padding: var(--ds-space-1) var(--ds-space-2);
+  color: var(--ds-text-tertiary);
+  font-size: var(--ds-fs-caption);
+  line-height: 1.4;
+}
+/* 面板底部「管理…/探索更多…」弱入口 */
+.t-plus-menu__item--weak,
+.t-plus-menu__item--weak .t-plus-menu__icon { color: var(--ds-text-secondary); }
+.t-plus-menu__item--weak:hover .t-plus-menu__icon { color: var(--ds-text-primary); }
+
+/* 演示用用户气泡（P8 message 实物替换） */
+.t-user-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--ds-space-4) var(--ds-space-4) 0;
+  box-sizing: border-box;
+}
+.t-user-bubble {
+  max-width: 72%;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+}
+
+/* 右栏（P10 占位；结构对齐 artifact-panel 合同 AP-1/6/14）：页签行 + 工具栏 + 内容区 */
+.t-arti { display: flex; flex-direction: column; min-height: 100%; }
+
+/* AP-1 文件页签行：已打开产物页签随会话出现（新建态无）；＋ 常驻行尾=新建标签页（AP-20） */
+.t-atabs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: 0 var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-divider);
+}
+.t-atab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 32px;
+  margin: var(--ds-space-1) 0;
+  padding: 0 var(--ds-space-2);
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  color: var(--ds-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.t-atab:hover { background: var(--ds-hover-fill); color: var(--ds-text-primary); }
+.t-atab.is-active { background: var(--ds-active-fill); color: var(--ds-text-primary); }
+/* 页签关闭 x：hover/focus-within/当前页签显露，布局不跳动（AP-2，新标签页 JS 注入同样式） */
+.t-atab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--ds-radius-small);
+  background: transparent;
+  color: var(--ds-text-tertiary);
+  opacity: 0;
+  cursor: pointer;
+}
+.t-atab:hover .t-atab__close,
+.t-atab:focus-within .t-atab__close,
+.t-atab.is-active .t-atab__close { opacity: 1; }
+.t-atab__close:hover { background: var(--ds-active-fill); color: var(--ds-text-primary); }
+.t-atabs__spacer { flex: 1 1 auto; }
+
+/* AP-6 工具栏：当前文件名（无产物为空）｜ 右弹簧：编辑/预览切换（AP-18） ↗（无产物禁用）··· ☲ */
+.t-atbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 44px;
+  padding: 0 var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-divider);
+}
+.t-atbar__name {
+  min-width: 0;
+  flex: 0 1 auto;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.t-atbar__spacer { flex: 1 1 auto; }
+
+/* AP-14 空态（无产物；右栏由中栏入口主动打开时展示，无按钮堆） */
+.t-aempty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-3);
+  color: var(--ds-text-tertiary);
+  font-size: var(--ds-fs-compact);
+}
+.t-aempty .ds-icon { width: 24px; height: 24px; color: var(--ds-text-quaternary); }
+/* 启动页态隐藏空态与文件名 */
+.t-arti[data-tab="launcher"] .t-aempty { display: none; }
+.t-arti[data-tab="empty"] .t-atbar__name,
+.t-arti[data-tab="launcher"] .t-atbar__name { display: none; }
+
+/* AP-18 编辑/预览切换钮（无产物/启动页态隐藏；状态机由 P10 实物提供） */
+.t-amode {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  height: 30px;
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  line-height: 1;
+  cursor: pointer;
+}
+.t-amode:hover { background: var(--ds-hover-fill); }
+.t-amode .ds-icon { flex: none; color: var(--ds-text-primary); }
+.t-arti .t-amode[hidden] { display: none; }
+.t-arti [hidden] { display: none !important; }
+
+/* AP-20 新标签页启动页：5 行大胶囊居中；输入框/按钮仅占位（AP-X6） */
+.t-alaunch { flex: 1 1 auto; min-height: 0; overflow: auto; display: none; }
+.t-arti[data-tab="launcher"] .t-alaunch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: var(--ds-space-5) var(--ds-space-4);
+}
+.t-alaunch__inner { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: var(--ds-space-2); }
+.t-launch-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--ds-space-5);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+button.t-launch-row:hover { background: var(--ds-hover-fill); }
+.t-launch-row .ds-icon { flex: none; color: var(--ds-text-secondary); }
+.t-launch-row__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--ds-fs-body);
+  color: var(--ds-text-primary);
+}
+.t-launch-row__field::placeholder { color: var(--ds-text-primary); opacity: 1; }
+/* 聚焦不画灰环：外层胶囊边框常驻，输入框聚焦无 outline/box-shadow（同 CP-1 模式） */
+.t-launch-row__field:focus,
+.t-launch-row__field:focus-visible { outline: none; box-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .t-composer-stage, .t-welcome__greeting, .t-suggestions { transition: none; }
+}
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <defs>
+    <!-- 渲染约定：引用侧 <svg class="ds-icon"><use href="#i-xxx"/></svg>；
+         .ds-icon 在 tokens.css 统一定义 fill:none / stroke:currentColor / 1.8px / round。
+         实心元素在自身标记 fill="currentColor" stroke="none"。 -->
+
+    <!-- 通用操作 -->
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-x"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-circle"><circle cx="12" cy="12" r="9"/></symbol>
+    <symbol id="i-pause"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-stop"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></symbol>
+
+    <!-- 方向/展收 -->
+    <symbol id="i-chevron-right"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-left"><path d="m15 18-6-6 6-6"/></symbol>
+
+    <!-- 菜单/更多/导航 -->
+    <symbol id="i-menu"><path d="M4 12h16M4 6h16M4 18h16"/></symbol>
+    <symbol id="i-more-horizontal"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-list-tree"><path d="M4 6h.01M4 12h.01M4 18h.01"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
+    <symbol id="i-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-alert-triangle"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 2.52h16.94a2 2 0 0 0 1.71-2.52L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+
+    <!-- 会话/项目 -->
+    <symbol id="i-message-plus"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M12 8v6M9 11h6"/></symbol>
+    <symbol id="i-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-open"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-folder-plus"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13h6"/></symbol>
+    <symbol id="i-folder-input"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></symbol>
+    <symbol id="i-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z"/></symbol>
+
+    <!-- 行操作 -->
+    <symbol id="i-pencil"><path d="M21.17 6.81a1 1 0 0 0-3.98-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.63l4.35-1.32a2 2 0 0 0 .83-.5Z"/></symbol>
+    <symbol id="i-trash"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-copy"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-refresh"><path d="M3 12a9 9 0 0 1 15.74-6.26L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.74 6.26L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-share"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></symbol>
+    <symbol id="i-git-branch"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-thumb-up"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></symbol>
+    <symbol id="i-thumb-down"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></symbol>
+
+    <!-- 输入区 -->
+    <symbol id="i-send"><path d="M14.54 21.69a.5.5 0 0 0 .93-.03l6.5-19a.5.5 0 0 0-.63-.63l-19 6.5a.5.5 0 0 0-.03.93l7.93 3.18a2 2 0 0 1 1.11 1.11Z"/><path d="m21.85 2.15-10.94 10.94"/></symbol>
+    <symbol id="i-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-at-sign"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></symbol>
+    <symbol id="i-mic"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></symbol>
+
+    <!-- composer 加号收纳菜单（CP-25）：全部 24 网格手绘线性几何，保持 1.8 描边一致 -->
+    <symbol id="i-hash"><path d="M4 9h16M4 15h16M10 4 8.5 20M16 4l-1.5 16"/></symbol>
+    <symbol id="i-bolt"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12Z"/></symbol>
+    <symbol id="i-terminal"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="m7.5 9 3 3-3 3M13 15.5h4"/></symbol>
+    <symbol id="i-grid"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-blocks"><rect x="3.5" y="8" width="5" height="12" rx="1.2"/><rect x="9.5" y="4.5" width="5" height="15.5" rx="1.2"/><rect x="15.5" y="9.5" width="5" height="10.5" rx="1.2"/></symbol>
+    <symbol id="i-sliders"><path d="M3.5 7h6M14.5 7h6M3.5 12h2.5M12 12h8.5M3.5 17h10M18.5 17h2"/><circle cx="12.5" cy="7" r="2.2"/><circle cx="9" cy="12" r="2.2"/><circle cx="16" cy="17" r="2.2"/></symbol>
+
+    <!-- 知识库/智能体/用户/模型 -->
+    <symbol id="i-book-open"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/></symbol>
+    <symbol id="i-bot"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2"/><path d="M9 13v2M15 13v2"/></symbol>
+    <symbol id="i-user"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-sparkles"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0Z"/><path d="M20 3v4M22 5h-4M4 17v2M5 18H3"/></symbol>
+
+    <!-- 文件类型 -->
+    <symbol id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></symbol>
+    <symbol id="i-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 16.5h6"/></symbol>
+    <symbol id="i-file-md"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8.5 17.5v-3.4l1.8 2.1 1.8-2.1v3.4"/></symbol>
+    <symbol id="i-file-sheet"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 12.5h6M9 15.5h6M11 11.5v6M14 11.5v6"/></symbol>
+    <symbol id="i-file-pdf"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9.2 17.2v-4h1.6a1.4 1.4 0 0 1 0 2.8H9.2"/></symbol>
+    <symbol id="i-image"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+
+    <!-- 产物面板：编辑/预览、代码文件、云盘、元素选择 -->
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></symbol>
+    <symbol id="i-file-code" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m10 13-2 2 2 2M14 13l2 2-2 2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 5 12 7-12 7Z"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><rect x="4" y="5" width="10" height="9" rx="1.5"/><path d="M19 13.8V19h-5.2"/><path d="m12.5 12.5 6.5 6.5"/></symbol>
+
+    <!-- 壳层面板 -->
+    <symbol id="i-panel-left"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-panel-right"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  </defs>
+</svg>
+
+<div data-component="workbench-shell" class="ds-shell" data-left="open" data-right="closed" data-ready="0">
+  <!-- ============ 左栏（P7 挂载区） ============ -->
+  <aside class="ds-shell__left" aria-label="工作台侧边栏">
+    <div class="ds-shell__left-body" data-region="left-body">
+      <div class="t-left-stack">
+        <!-- P7 brand-header -->
+        <div class="t-brand">
+          <span class="t-brand__logo">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+          </span>
+          <span>__PRODUCT_NAME__</span>
+        </div>
+
+        <!-- P7 新建动作（路径 1：新建会话） -->
+        <div class="t-new">
+          <button type="button" class="ds-btn ds-btn--block t-new__btn">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-message-plus"></use></svg>
+            <span class="ds-btn__label">新建会话</span>
+          </button>
+        </div>
+
+        <!-- P7 tool-nav：新建/对话态不选中任何工具；名称全部槽位化；图标无证据时统一占位 sparkles -->
+        <nav class="t-tools" aria-label="__TOOL_NAV_GROUP_TITLE__">
+          <div class="t-tools__title">__TOOL_NAV_GROUP_TITLE__</div>
+          <button type="button" class="t-tools__item">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__TOOL_1_NAME__</span>
+          </button>
+          <button type="button" class="t-tools__item">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__TOOL_2_NAME__</span>
+          </button>
+          <button type="button" class="t-tools__item">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__TOOL_3_NAME__</span>
+          </button>
+          <button type="button" class="t-tools__item">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__TOOL_4_NAME__</span>
+          </button>
+          <button type="button" class="t-tools__item">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__TOOL_5_NAME__</span>
+          </button>
+        </nav>
+
+        <!-- P7 history-tree 挂载位：本骨架仅渲染分组标题与空态提示 -->
+        <div class="t-history">
+          <div class="t-history__title">项目</div>
+          <div class="t-history__empty">__PROJECT_1_NAME__（项目行由 history-tree 渲染）</div>
+          <div class="t-history__title">最近</div>
+          <div class="t-history__empty">__RECENT_CONVERSATION_1_TITLE__（会话行由 history-tree 渲染）</div>
+        </div>
+
+        <!-- P7 user-card -->
+        <div class="t-user">
+          <span class="t-user__avatar">__USER_INITIALS__</span>
+          <span>__USER_NAME__</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ 中栏 ============ -->
+  <section class="ds-shell__center" data-stage="welcome">
+    <!-- P8 conversation-header 挂载位（空白会话不显示标题/任务状态行） -->
+    <header class="ds-shell__center-header">
+      <button type="button" class="ds-icon-btn" data-action="left-toggle"
+        aria-label="折叠左栏" aria-expanded="true">
+        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-panel-left"></use></svg>
+      </button>
+      <div class="ds-shell__header-slot" data-region="center-header"><!-- __CONVERSATION_TITLE__ / __TASK_DURATION__ 随会话出现 --></div>
+      <button type="button" class="ds-icon-btn ds-shell__right-open" data-action="right-open"
+        aria-label="打开产物面板" aria-expanded="false" hidden>
+        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-panel-right"></use></svg>
+      </button>
+    </header>
+
+    <!-- 消息流：welcome 态为空；chatting 态由 P8 注入消息（演示气泡仅表达贴底行为） -->
+    <div class="ds-shell__scroll" data-region="conversation"></div>
+
+    <!-- P9 composer 挂载位：welcome 随 stage 居中，发送后下沉；发送/Enter/@/附件/语音由 composer 实物替换 -->
+    <div class="ds-shell__composer" data-region="composer">
+      <div class="t-composer-stage">
+        <h1 class="t-welcome__greeting">__GREETING__</h1>
+        <div class="t-composer">
+          <textarea class="t-composer__textarea" rows="1" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
+          <div class="t-composer__bar">
+            <!-- CP-25：附件 / @ 等输入能力统一收纳进加号菜单（语音仍常驻） -->
+            <button type="button" class="ds-icon-btn t-composer__plus" aria-label="更多输入能力"
+              aria-haspopup="menu" aria-expanded="false" aria-controls="t-plus-menu">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-plus"></use></svg>
+            </button>
+            <button type="button" class="ds-icon-btn" aria-label="语音输入">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-mic"></use></svg>
+            </button>
+            <button type="button" class="t-composer__model">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+              <span>__MODEL_NAME__</span>
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+            </button>
+            <span class="t-composer__spacer"></span>
+            <button type="button" class="ds-btn ds-btn--primary t-composer__send" aria-disabled="true" disabled>
+              <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-send"></use></svg>
+            </button>
+          </div>
+          <!-- CP-25 加号收纳菜单：静态结构与占位项；打开时由 JS 搬至 body 定位。P8 实物接线：
+               上传附件走 CP-11 隐藏 file 内核；@ 提及走 CP-13；分类项的二级条目按槽位由各能力提供方注册 -->
+          <div class="t-plus-menu" id="t-plus-menu" role="menu" hidden aria-label="更多输入能力">
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="add-context">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-hash"></use></svg>
+              <span class="t-plus-menu__label">添加知识库</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="invoke">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-bolt"></use></svg>
+              <span class="t-plus-menu__label">调用命令和技能</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="attachment">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-paperclip"></use></svg>
+              <span class="t-plus-menu__label">上传附件</span>
+            </button>
+            <div class="t-plus-menu__sep" role="separator"></div>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-sub="command" aria-haspopup="menu" aria-expanded="false">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+              <span class="t-plus-menu__label">命令</span>
+              <svg class="ds-icon t-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-sub="plugin" aria-haspopup="menu" aria-expanded="false">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+              <span class="t-plus-menu__label">插件</span>
+              <svg class="ds-icon t-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-sub="skill" aria-haspopup="menu" aria-expanded="false">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+              <span class="t-plus-menu__label">技能</span>
+              <svg class="ds-icon t-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
+            <div class="t-plus-menu__sep" role="separator"></div>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-sub="integration-1" aria-haspopup="menu" aria-expanded="false">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-file-text"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_INTEGRATION_1_NAME__</span>
+              <svg class="ds-icon t-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-sub="integration-2" aria-haspopup="menu" aria-expanded="false">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-user"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_INTEGRATION_2_NAME__</span>
+              <svg class="ds-icon t-plus-menu__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
+          </div>
+
+          <!-- 二级面板：命令 / 插件 / 技能 / 集成 1 / 集成 2（条目为占位槽位，P8 由能力方注册） -->
+          <div class="t-plus-sub" data-plus-panel="command" role="menu" hidden aria-label="命令">
+            <div class="t-plus-sub__title">可用命令</div>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="command-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_CMD_1_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="command-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_CMD_2_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="command-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-terminal"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_CMD_3_NAME__</span>
+            </button>
+            <div class="t-plus-menu__sep" role="separator"></div>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="manage-command">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+              <span class="t-plus-menu__label">管理命令</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="explore-command">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+              <span class="t-plus-menu__label">探索更多命令</span>
+            </button>
+          </div>
+
+          <div class="t-plus-sub" data-plus-panel="plugin" role="menu" hidden aria-label="插件">
+            <div class="t-plus-sub__title">可用插件</div>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="plugin-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_PLUGIN_1_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="plugin-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_PLUGIN_2_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="plugin-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-grid"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_PLUGIN_3_NAME__</span>
+            </button>
+            <div class="t-plus-menu__sep" role="separator"></div>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="manage-plugin">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+              <span class="t-plus-menu__label">管理插件</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="explore-plugin">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+              <span class="t-plus-menu__label">探索更多插件</span>
+            </button>
+          </div>
+
+          <div class="t-plus-sub" data-plus-panel="skill" role="menu" hidden aria-label="技能">
+            <div class="t-plus-sub__title">可用技能</div>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="skill-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_SKILL_1_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="skill-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_SKILL_2_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="skill-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-blocks"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_SKILL_3_NAME__</span>
+            </button>
+            <div class="t-plus-menu__sep" role="separator"></div>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="manage-skill">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+              <span class="t-plus-menu__label">管理技能</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="explore-skill">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+              <span class="t-plus-menu__label">探索更多技能</span>
+            </button>
+          </div>
+
+          <div class="t-plus-sub" data-plus-panel="integration-1" role="menu" hidden aria-label="__PLUS_INTEGRATION_1_NAME__">
+            <div class="t-plus-sub__title">__PLUS_INTEGRATION_1_NAME__</div>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="integration-1-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-file-text"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_INTEGRATION_1_ITEM_1_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="integration-1-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-file-text"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_INTEGRATION_1_ITEM_2_NAME__</span>
+            </button>
+            <div class="t-plus-menu__sep" role="separator"></div>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="manage-integration-1">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+              <span class="t-plus-menu__label">管理</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="explore-integration-1">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+              <span class="t-plus-menu__label">探索更多</span>
+            </button>
+          </div>
+
+          <div class="t-plus-sub" data-plus-panel="integration-2" role="menu" hidden aria-label="__PLUS_INTEGRATION_2_NAME__">
+            <div class="t-plus-sub__title">__PLUS_INTEGRATION_2_NAME__</div>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="integration-2-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-user"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_INTEGRATION_2_ITEM_1_NAME__</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item" data-plus-action="integration-2-item">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-user"></use></svg>
+              <span class="t-plus-menu__label">__PLUS_INTEGRATION_2_ITEM_2_NAME__</span>
+            </button>
+            <div class="t-plus-menu__sep" role="separator"></div>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="manage-integration-2">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sliders"></use></svg>
+              <span class="t-plus-menu__label">管理</span>
+            </button>
+            <button type="button" role="menuitem" class="t-plus-menu__item t-plus-menu__item--weak" data-plus-action="explore-integration-2">
+              <svg class="ds-icon t-plus-menu__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+              <span class="t-plus-menu__label">探索更多</span>
+            </button>
+          </div>
+        </div>
+        <div class="t-suggestions" aria-label="建议提问">
+          <button type="button" class="t-suggestion">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__SUGGESTED_PROMPT_1_TITLE__</span>
+          </button>
+          <button type="button" class="t-suggestion">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__SUGGESTED_PROMPT_2_TITLE__</span>
+          </button>
+          <button type="button" class="t-suggestion">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__SUGGESTED_PROMPT_3_TITLE__</span>
+          </button>
+          <button type="button" class="t-suggestion">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <span>__SUGGESTED_PROMPT_4_TITLE__</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 手柄骑在中/右栏分界线上；右栏关闭时整块隐藏（CSS） -->
+  <div class="ds-shell__resize" role="separator" aria-orientation="vertical" tabindex="0"
+    title="拖拽调整产物面板宽度" aria-label="产物面板宽度"
+    aria-valuemin="320" aria-valuemax="720" aria-valuenow="480">
+  </div>
+
+  <!-- ============ 右栏（P10 挂载区；新建态默认关闭） ============ -->
+  <aside class="ds-shell__right" aria-label="产物面板">
+    <header class="ds-shell__right-header">
+      <span class="ds-shell__right-title">产物</span>
+      <button type="button" class="ds-icon-btn" data-action="right-close"
+        aria-label="关闭产物面板" aria-expanded="false">
+        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-panel-right"></use></svg>
+      </button>
+    </header>
+    <div class="ds-shell__right-scroll" data-region="artifact">
+      <!-- P10 占位（结构对齐设计文档 4.5 / artifact-panel 合同）；实物组装时整体替换 -->
+      <div class="t-arti" data-tab="empty">
+        <!-- AP-1 文件页签行：新建态无已打开产物页签；＋ = 新建标签页（AP-20） -->
+        <div class="t-atabs" role="tablist" aria-label="产物文件页签">
+          <span class="t-atabs__spacer" aria-hidden="true"></span>
+          <button type="button" class="ds-icon-btn ds-icon-btn--sm" data-action="tab-new" aria-label="新建标签页">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-plus"></use></svg>
+          </button>
+        </div>
+
+        <!-- AP-6 工具栏：右弹簧：编辑/预览切换（无产物/启动页态隐藏）｜ ↗外部打开（无产物禁用）···更多 ☲文件树 -->
+        <div class="t-atbar">
+          <span class="t-atbar__name"></span>
+          <span class="t-atbar__spacer" aria-hidden="true"></span>
+          <button type="button" class="t-amode" data-action="mode-toggle" hidden aria-label="切换到代码编辑视图">
+            <svg class="ds-icon t-amode__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-code"></use></svg>
+            <span class="t-amode__label">编辑</span>
+          </button>
+          <button type="button" class="ds-icon-btn" disabled aria-disabled="true" aria-label="外部打开（无产物时不可用）">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-external-link"></use></svg>
+          </button>
+          <button type="button" class="ds-icon-btn" aria-label="更多操作">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-more-horizontal"></use></svg>
+          </button>
+          <button type="button" class="ds-icon-btn" aria-pressed="false" aria-label="切换文件树">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-list-tree"></use></svg>
+          </button>
+        </div>
+
+        <!-- AP-14 内容区空态：产物将在此出现（无按钮堆） -->
+        <div class="t-aempty">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><use href="#i-file"></use></svg>
+          <span>__ARTIFACT_EMPTY_TEXT__</span>
+        </div>
+
+        <!-- AP-20 新标签页启动页（＋ 新建、x 关闭；输入框/按钮全部仅占位，AP-X6） -->
+        <div class="t-alaunch" data-view="launcher" hidden>
+          <div class="t-alaunch__inner">
+            <div class="t-launch-row t-launch-row--input">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-search"></use></svg>
+              <input type="text" class="t-launch-row__field" placeholder="搜索或输入网址" aria-label="搜索或输入网址（原型占位，不跳转）">
+            </div>
+            <button type="button" class="t-launch-row" data-launch-action="open-folder">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-folder"></use></svg>
+              <span>打开项目文件夹</span>
+            </button>
+            <button type="button" class="t-launch-row" data-launch-action="open-cloud">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-cloud"></use></svg>
+              <span>打开云盘文件</span>
+            </button>
+            <button type="button" class="t-launch-row" data-launch-action="new-file">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-plus"></use></svg>
+              <span>新建文件</span>
+            </button>
+            <button type="button" class="t-launch-row" data-launch-action="open-terminal">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><use href="#i-terminal"></use></svg>
+              <span>打开终端</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* workbench-shell
+ * 自动初始化 [data-component="workbench-shell"]。
+ * 事件总线（document 级 CustomEvent）：
+ *   sidebar:toggle     {collapsed:boolean}     折叠/展开左栏
+ *   rightpanel:toggle  {open:boolean}          打开/关闭右栏（open 省略=取反）
+ *   artifact:open      任意载荷                  保证右栏打开（WS-14）
+ *   rightpanel:resize  {width:number}           拖拽/键盘调宽提交后由壳派发（bubbles）
+ * localStorage 键见 spec.localStorage；非法值回退 token 默认。
+ */
+(function () {
+  'use strict';
+
+  var KEY = {
+    leftCollapsed: 'ds.chat-workbench.sidebar.collapsed',
+    rightOpen: 'ds.chat-workbench.rightPanel.open',
+    rightWidth: 'ds.chat-workbench.rightPanel.width'
+  };
+  var STEP = 16; // 键盘调宽步进 = --ds-space-4
+
+  function tokenPx(root, name, fallback) {
+    var v = parseFloat(getComputedStyle(root).getPropertyValue(name));
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function readBool(key, def) {
+    try {
+      var v = localStorage.getItem(key);
+      if (v === null) return def;
+      return v === '1';
+    } catch (e) { return def; }
+  }
+
+  function writeBool(key, val) {
+    try { localStorage.setItem(key, val ? '1' : '0'); } catch (e) { /* 隐私模式降级为内存态 */ }
+  }
+
+  function readNum(key, def) {
+    try {
+      var v = parseFloat(localStorage.getItem(key));
+      return Number.isFinite(v) ? v : def;
+    } catch (e) { return def; }
+  }
+
+  function writeNum(key, val) {
+    try { localStorage.setItem(key, String(Math.round(val))); } catch (e) { /* ignore */ }
+  }
+
+  function clamp(v, min, max) {
+    return Math.min(max, Math.max(min, v));
+  }
+
+  function init(root) {
+    if (root.__dsShellInit) return;
+    root.__dsShellInit = true;
+
+    var leftEl = root.querySelector('.ds-shell__left');
+    var rightEl = root.querySelector('.ds-shell__right');
+    var handle = root.querySelector('.ds-shell__resize');
+    var btnLeftToggle = root.querySelector('[data-action="left-toggle"]');
+    var btnRightOpen = root.querySelector('[data-action="right-open"]');
+    var btnRightClose = root.querySelector('[data-action="right-close"]');
+
+    var limits = {
+      rightMin: tokenPx(root, '--ds-right-min', 320),
+      rightMax: tokenPx(root, '--ds-right-max', 720),
+      centerMin: tokenPx(root, '--ds-center-min', 360)
+    };
+
+    // 初始优先级：localStorage 记忆 > data-left/data-right 声明默认 > 全打开
+    var attrLeftClosed = root.getAttribute('data-left') === 'closed';
+    var attrRightOpen = root.getAttribute('data-right') !== 'closed';
+    var state = {
+      leftCollapsed: readBool(KEY.leftCollapsed, attrLeftClosed),
+      rightOpen: readBool(KEY.rightOpen, attrRightOpen),
+      rightWidth: readNum(KEY.rightWidth, tokenPx(root, '--ds-right-width', 480))
+    };
+
+    function currentLeftWidth() {
+      return leftEl.getBoundingClientRect().width;
+    }
+
+    /* 视口约束：中栏不得小于 centerMin；返回当前合法右宽上限 */
+    function maxWidthForViewport() {
+      return window.innerWidth - currentLeftWidth() - limits.centerMin;
+    }
+
+    function clampRight(w) {
+      return clamp(w, limits.rightMin, Math.max(limits.rightMin, maxWidthForViewport()));
+    }
+
+    function emit(name, detail) {
+      root.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail || {} }));
+    }
+
+    function sync() {
+      root.dataset.left = state.leftCollapsed ? 'closed' : 'open';
+      root.dataset.right = state.rightOpen ? 'open' : 'closed';
+
+      var w = clampRight(state.rightWidth);
+      root.style.setProperty('--shell-right-w', w + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(w)));
+
+      btnLeftToggle.setAttribute('aria-expanded', String(!state.leftCollapsed));
+      btnLeftToggle.setAttribute('aria-label', state.leftCollapsed ? '展开左栏' : '折叠左栏');
+      // 右栏展收入口互斥：展开只留右栏 header 的关闭钮；收起只留中栏 header 的打开钮
+      btnRightOpen.hidden = state.rightOpen;
+      btnRightOpen.setAttribute('aria-expanded', String(state.rightOpen));
+      btnRightClose.setAttribute('aria-expanded', String(state.rightOpen));
+    }
+
+    function setLeft(collapsed) {
+      var next = !!collapsed;
+      if (next === state.leftCollapsed && root.dataset.ready === '1') return;
+      state.leftCollapsed = next;
+      writeBool(KEY.leftCollapsed, next);
+      sync();
+    }
+
+    function setRight(open) {
+      var next = typeof open === 'boolean' ? open : !state.rightOpen;
+      state.rightOpen = next;
+      writeBool(KEY.rightOpen, next);
+      sync();
+    }
+
+    function setWidth(w, persist) {
+      state.rightWidth = clampRight(w);
+      root.style.setProperty('--shell-right-w', state.rightWidth + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(state.rightWidth)));
+      if (persist) {
+        writeNum(KEY.rightWidth, state.rightWidth);
+        emit('rightpanel:resize', { width: Math.round(state.rightWidth) });
+      }
+    }
+
+    /* ---- 内部按钮：统一走 document 事件，外部组件也能驱动 ---- */
+    btnLeftToggle.addEventListener('click', function () {
+      document.dispatchEvent(new CustomEvent('sidebar:toggle', { detail: { collapsed: !state.leftCollapsed } }));
+    });
+    btnRightOpen.addEventListener('click', function () {
+      document.dispatchEvent(new CustomEvent('rightpanel:toggle', { detail: { open: true } }));
+    });
+    btnRightClose.addEventListener('click', function () {
+      document.dispatchEvent(new CustomEvent('rightpanel:toggle', { detail: { open: false } }));
+    });
+
+    document.addEventListener('sidebar:toggle', function (e) {
+      setLeft(typeof e.detail.collapsed === 'boolean' ? e.detail.collapsed : !state.leftCollapsed);
+    });
+    document.addEventListener('rightpanel:toggle', function (e) {
+      setRight(e.detail && typeof e.detail.open === 'boolean' ? e.detail.open : undefined);
+    });
+    document.addEventListener('artifact:open', function () {
+      if (!state.rightOpen) setRight(true); // WS-14
+    });
+
+    /* ---- 拖拽调宽（Pointer Events） ---- */
+    var dragging = false;
+
+    function dragWidthFromX(clientX) {
+      return window.innerWidth - clientX;
+    }
+
+    /* move/up 挂在 window 而非手柄：不完全依赖 pointer capture 的事件重定向，
+       指针快速滑出或落在邻栏时拖拽也不中断（WS-9/11） */
+    function onDragMove(e) {
+      // 不提交（不 persist、不派发），只改一个 CSS 像素值
+      state.rightWidth = clampRight(dragWidthFromX(e.clientX));
+      root.style.setProperty('--shell-right-w', state.rightWidth + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(state.rightWidth)));
+    }
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      root.classList.remove('ds-shell--dragging');
+      document.body.classList.remove('ds-is-resizing');
+      window.removeEventListener('pointermove', onDragMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+      try {
+        if (e && e.pointerId != null && handle.hasPointerCapture && handle.hasPointerCapture(e.pointerId)) {
+          handle.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) {}
+      writeNum(KEY.rightWidth, state.rightWidth);
+      emit('rightpanel:resize', { width: Math.round(state.rightWidth) });
+    }
+
+    handle.addEventListener('pointerdown', function (e) {
+      if (!state.rightOpen) return;
+      dragging = true;
+      e.preventDefault();
+      try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+      root.classList.add('ds-shell--dragging');
+      document.body.classList.add('ds-is-resizing');
+      window.addEventListener('pointermove', onDragMove);
+      window.addEventListener('pointerup', endDrag);
+      window.addEventListener('pointercancel', endDrag);
+    });
+
+    /* ---- 键盘：←加宽 →减宽（右栏锚定视口右缘），Home/End 极值 ---- */
+    handle.addEventListener('keydown', function (e) {
+      if (!state.rightOpen) return;
+      var w = state.rightWidth;
+      switch (e.key) {
+        case 'ArrowLeft': e.preventDefault(); setWidth(w + STEP, true); break;
+        case 'ArrowRight': e.preventDefault(); setWidth(w - STEP, true); break;
+        case 'Home': e.preventDefault(); setWidth(limits.rightMin, true); break;
+        case 'End': e.preventDefault(); setWidth(maxWidthForViewport(), true); break;
+      }
+    });
+
+    /* ---- 视口缩小时重新钳制（不写盘，避免抖动污染记忆） ---- */
+    window.addEventListener('resize', function () {
+      var w = clampRight(state.rightWidth);
+      state.rightWidth = w;
+      root.style.setProperty('--shell-right-w', w + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(w)));
+    });
+
+    /* ---- 首帧直接终态，不开恢复动画（WS-13） ---- */
+    sync();
+    requestAnimationFrame(function () { root.dataset.ready = '1'; });
+
+    root.__dsShellApi = {
+      setLeft: setLeft,
+      setRight: setRight,
+      setWidth: function (w) { setWidth(w, true); },
+      state: state
+    };
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="workbench-shell"]'),
+      init
+    );
+  }
+
+  // 脚本位于 body 末尾，DOM 已就绪
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSWorkbenchShell = {
+    init: init,
+    forRoot: function (root) { return root && root.__dsShellApi; }
+  };
+})();
+
+/* ============================================================
+   以下为【模板状态演示】，仅表达 welcome→chatting 的几何契约（CP-22），
+   P8/P9 实物组装时整段删除（真实发送走 conversation:submit，见 CP-6）。
+   ============================================================ */
+(function () {
+  var center = document.querySelector('.ds-shell__center');
+  var scroll = center.querySelector('.ds-shell__scroll');
+  var ta = center.querySelector('.t-composer__textarea');
+  var send = center.querySelector('.t-composer__send');
+
+  function syncSend() {
+    var ready = ta.value.trim().length > 0;
+    send.disabled = !ready;
+    send.setAttribute('aria-disabled', String(!ready));
+  }
+  ta.addEventListener('input', syncSend);
+
+  function appendUserBubble(text) {
+    var row = document.createElement('div');
+    row.className = 't-user-row';
+    var bubble = document.createElement('div');
+    bubble.className = 't-user-bubble';
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    scroll.appendChild(row);
+  }
+
+  function submit() {
+    var text = ta.value.trim();
+    if (!text) return;
+    if (center.dataset.stage === 'welcome') center.dataset.stage = 'chatting'; // 触发下沉
+    appendUserBubble(text);
+    ta.value = '';
+    syncSend();
+    ta.dispatchEvent(new window.Event('input')); /* 通知自适应逻辑把高度收回单行 */
+    window.setTimeout(function () { scroll.scrollTop = scroll.scrollHeight; }, 320);
+  }
+
+  send.addEventListener('click', submit);
+  ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
+  });
+  syncSend();
+})();
+
+/* ============================================================
+   【模板状态演示】输入框高度自适应（参考交互）：
+   默认 1 行；随输入行数逐行增高；最多 8 行，超出后框内纵向滚动
+   （CSS max-height + overflow-y:auto 兜底）；清空发送后收回单行。
+   P9 composer 实物沿用同一几何规则，几何基准：行高 24 + 上下 padding 4。
+   ============================================================ */
+(function () {
+  var ta = document.querySelector('.t-composer__textarea');
+  if (!ta) return;
+  var MAX_LINES = 8;
+  var cs = window.getComputedStyle(ta);
+  var LINE = parseFloat(cs.lineHeight);
+  var PAD = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  var MIN_H = LINE + PAD;
+  var MAX_H = LINE * MAX_LINES + PAD;
+  function resize() {
+    ta.style.height = 'auto';
+    var h = ta.scrollHeight;
+    if (h < MIN_H) h = MIN_H;
+    if (h > MAX_H) h = MAX_H;
+    ta.style.height = h + 'px';
+  }
+  ta.addEventListener('input', resize);
+  window.addEventListener('resize', resize); /* 宽度变化改变折行行数，需重算 */
+  resize();
+})();
+
+/* ============================================================
+   【CP-25 行为参考】加号收纳菜单：一级菜单 + 分类级联二级面板。
+   卡面打开时搬至 body 用 fixed 定位（规避 welcome 态 composer 祖先的
+   transform containing block）；P8 composer 实物沿用同一状态机与定位翻转规则。
+   ============================================================ */
+(function () {
+  var plus = document.querySelector('.t-composer__plus');
+  var menu = document.getElementById('t-plus-menu');
+  if (!plus || !menu) return;
+
+  var subs = {};
+  Array.prototype.forEach.call(document.querySelectorAll('.t-plus-sub'), function (s) {
+    subs[s.getAttribute('data-plus-panel')] = s;
+    document.body.appendChild(s);
+  });
+  document.body.appendChild(menu);
+
+  var MENU_GAP = 8, SUB_GAP = 4, EDGE = 8, HOVER_DELAY = 120;
+  var open = false, currentSub = null, hoverTimer = null, suppressSubOpenUntil = 0;
+
+  function itemList(container) {
+    return Array.prototype.filter.call(
+      container.querySelectorAll('.t-plus-menu__item'),
+      function (b) { return b.offsetParent !== null || b === document.activeElement; }
+    );
+  }
+  function clamp(v, min, max) { return Math.max(min, Math.min(v, max)); }
+
+  function placeMenu() {
+    var r = plus.getBoundingClientRect();
+    menu.hidden = false;
+    var mw = menu.offsetWidth, mh = menu.offsetHeight;
+    var left = clamp(r.left, EDGE, window.innerWidth - mw - EDGE);
+    var top = r.top - mh - MENU_GAP;            // 默认向上展开
+    if (top < EDGE) top = r.bottom + MENU_GAP; // 上方空间不足则向下
+    menu.style.left = left + 'px';
+    menu.style.top = Math.min(top, window.innerHeight - mh - EDGE) + 'px';
+  }
+
+  function resetOpeners() {
+    Array.prototype.forEach.call(menu.querySelectorAll('[data-plus-sub]'), function (b) {
+      b.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function placeSub(name, anchor) {
+    var sub = subs[name];
+    if (!sub) return;
+    Object.keys(subs).forEach(function (k) { if (k !== name) subs[k].hidden = true; });
+    resetOpeners();
+    sub.hidden = false;
+    var sw = sub.offsetWidth, sh = sub.offsetHeight;
+    var mr = menu.getBoundingClientRect(), ar = anchor.getBoundingClientRect();
+    var left = mr.right + SUB_GAP;                                   // 默认向右
+    if (left + sw > window.innerWidth - EDGE) left = mr.left - sw - SUB_GAP; // 右缘不足翻左侧
+    left = clamp(left, EDGE, window.innerWidth - sw - EDGE);
+    var top = clamp(ar.top, EDGE, window.innerHeight - sh - EDGE);
+    sub.style.left = left + 'px';
+    sub.style.top = top + 'px';
+    currentSub = name;
+    anchor.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeSub(focusBack) {
+    clearTimeout(hoverTimer);
+    if (!currentSub) return;
+    var name = currentSub;
+    subs[name].hidden = true;
+    var opener = menu.querySelector('[data-plus-sub="' + name + '"]');
+    if (opener) opener.setAttribute('aria-expanded', 'false');
+    currentSub = null;
+    if (focusBack && opener) {
+      suppressSubOpenUntil = Date.now() + 200;
+      opener.focus();
+    }
+  }
+
+  function openMenu() {
+    open = true;
+    plus.setAttribute('aria-expanded', 'true');
+    placeMenu();
+    var first = itemList(menu)[0];
+    if (first) first.focus();
+  }
+
+  function closeAll(returnFocus) {
+    if (!open) return;
+    open = false;
+    closeSub(false);
+    menu.hidden = true;
+    plus.setAttribute('aria-expanded', 'false');
+    if (returnFocus) {
+      var ta = document.querySelector('.t-composer__textarea');
+      if (ta) ta.focus();
+    }
+  }
+
+  function openSubAndFocus(name, anchor) {
+    placeSub(name, anchor);
+    var first = itemList(subs[name])[0];
+    if (first) first.focus();
+  }
+
+  function moveFocus(container, dir) {
+    var items = itemList(container);
+    if (!items.length) return;
+    var i = items.indexOf(document.activeElement);
+    var n = i < 0 ? (dir > 0 ? 0 : items.length - 1) : (i + dir + items.length) % items.length;
+    items[n].focus();
+  }
+
+  /* ---- 触发器 ---- */
+  plus.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (open) { closeAll(false); plus.focus(); } else { openMenu(); }
+  });
+
+  /* ---- 一级菜单：hover/focus 级联、点击、键盘 ---- */
+  Array.prototype.forEach.call(menu.querySelectorAll('[data-plus-sub]'), function (item) {
+    var name = item.getAttribute('data-plus-sub');
+    item.addEventListener('pointerenter', function () {
+      clearTimeout(hoverTimer);
+      if (currentSub !== name) placeSub(name, item);
+    });
+    item.addEventListener('focusin', function () {
+      clearTimeout(hoverTimer);
+      if (Date.now() < suppressSubOpenUntil) return;
+      if (currentSub !== name) placeSub(name, item);
+    });
+  });
+  menu.addEventListener('pointerleave', function () {
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(function () { closeSub(false); }, HOVER_DELAY);
+  });
+  Object.keys(subs).forEach(function (k) {
+    var sub = subs[k];
+    sub.addEventListener('pointerenter', function () { clearTimeout(hoverTimer); });
+    sub.addEventListener('pointerleave', function () {
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(function () { if (currentSub === k) closeSub(false); }, HOVER_DELAY);
+    });
+  });
+
+  menu.addEventListener('click', function (e) {
+    var item = e.target.closest && e.target.closest('.t-plus-menu__item');
+    if (!item || !menu.contains(item)) return;
+    var name = item.getAttribute('data-plus-sub');
+    if (name) { openSubAndFocus(name, item); }
+    else { closeAll(true); } // 原型：叶子项仅占位，激活后关闭并回焦输入框
+  });
+
+  menu.addEventListener('keydown', function (e) {
+    var item = e.target.closest && e.target.closest('.t-plus-menu__item');
+    switch (e.key) {
+      case 'ArrowDown': e.preventDefault(); moveFocus(menu, 1); break;
+      case 'ArrowUp':   e.preventDefault(); moveFocus(menu, -1); break;
+      case 'Home':      e.preventDefault(); var f0 = itemList(menu)[0]; if (f0) f0.focus(); break;
+      case 'End':       e.preventDefault(); var l0 = itemList(menu).pop(); if (l0) l0.focus(); break;
+      case 'ArrowRight':
+        if (item && item.getAttribute('data-plus-sub')) {
+          e.preventDefault();
+          openSubAndFocus(item.getAttribute('data-plus-sub'), item);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault(); closeAll(false); plus.focus(); break;
+      case 'Tab':
+        closeAll(false); break;
+    }
+  });
+
+  /* ---- 二级面板：键盘（↑↓ 循环 / ← Esc 回一级），叶子点击关闭 ---- */
+  Object.keys(subs).forEach(function (k) {
+    var sub = subs[k];
+    sub.addEventListener('keydown', function (e) {
+      switch (e.key) {
+        case 'ArrowDown': e.preventDefault(); moveFocus(sub, 1); break;
+        case 'ArrowUp':   e.preventDefault(); moveFocus(sub, -1); break;
+        case 'ArrowLeft':
+        case 'Escape':
+          e.preventDefault(); closeSub(true); break;
+        case 'Tab':
+          closeAll(false); break;
+      }
+    });
+    sub.addEventListener('click', function (e) {
+      var item = e.target.closest && e.target.closest('.t-plus-menu__item');
+      if (item && sub.contains(item)) closeAll(true);
+    });
+  });
+
+  /* ---- 外部点击 / 焦点离开 / 滚动缩放：关闭 ---- */
+  document.addEventListener('pointerdown', function (e) {
+    if (!open) return;
+    if (plus.contains(e.target) || menu.contains(e.target)) return;
+    if (currentSub && subs[currentSub].contains(e.target)) return;
+    closeAll(false);
+  }, true);
+
+  document.addEventListener('focusin', function (e) {
+    if (!open) return;
+    if (plus.contains(e.target) || menu.contains(e.target)) return;
+    if (currentSub && subs[currentSub].contains(e.target)) return;
+    closeAll(false);
+  });
+
+  window.addEventListener('resize', function () { closeAll(false); });
+  window.addEventListener('scroll', function () { closeAll(false); }, true);
+})();
+
+/* ============================================================
+   【模板状态演示】产物面板：＋ 新建可关闭「新标签页」启动页（AP-20）。
+   新建态无产物：启动页关闭后恢复空态（AP-14）；启动页 5 个入口全部
+   仅占位（AP-X6）。P10 实物组装时整段删除，事件走 artifact:tab:new。
+   ============================================================ */
+(function () {
+  var arti = document.querySelector('.t-arti');
+  if (!arti) return;
+  var tabs = arti.querySelector('.t-atabs');
+  var newBtn = tabs.querySelector('[data-action="tab-new"]');
+  var spacer = tabs.querySelector('.t-atabs__spacer');
+  var launch = arti.querySelector('.t-alaunch');
+
+  var LAUNCH_TAB_HTML =
+    '<svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-plus"></use></svg>'
+    + '<span>新标签页</span>'
+    + '<span class="t-atab__close" role="button" tabindex="0" aria-label="关闭页签：新标签页">'
+    + '<svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-x"></use></svg></span>';
+
+  function render() {
+    var isLaunch = arti.dataset.tab === 'launcher';
+    launch.hidden = !isLaunch;
+    var tab = tabs.querySelector('.t-atab--launch');
+    if (tab) tab.setAttribute('aria-selected', String(isLaunch));
+  }
+  function createLaunchTab() {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 't-atab t-atab--launch is-active';
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', 'true');
+    btn.innerHTML = LAUNCH_TAB_HTML;
+    spacer.parentNode.insertBefore(btn, spacer);
+    btn.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.t-atab__close')) return;
+      arti.dataset.tab = 'launcher';
+      render();
+    });
+    return btn;
+  }
+  function openLauncher() {
+    if (!tabs.querySelector('.t-atab--launch')) createLaunchTab();
+    arti.dataset.tab = 'launcher';
+    render();
+  }
+  function closeLauncher() {
+    var tab = tabs.querySelector('.t-atab--launch');
+    if (tab) tab.parentNode.removeChild(tab);
+    arti.dataset.tab = 'empty';
+    render();
+  }
+
+  newBtn.addEventListener('click', openLauncher);
+  tabs.addEventListener('click', function (e) {
+    var close = e.target.closest && e.target.closest('.t-atab__close');
+    if (!close) return;
+    e.stopPropagation();
+    if (close.closest('.t-atab--launch')) closeLauncher();
+  });
+  tabs.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('t-atab__close')) {
+      e.preventDefault();
+      e.target.click();
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件实物 · workbench-shell</title>
+<!--
+  组件文件 = 头部规范 JSON + 可运行实物。
+  复制规则：仅复制 [复制区] 标记内的根节点（data-component="workbench-shell"）、CSS、JS；
+  依赖组件（deps_css/deps_js）随本组件一并复制；
+  演示外壳（demo-*）仅供本页目检，禁止进入交付物。
+-->
+<script type="application/json" data-component-spec>
+{
+  "id": "workbench-shell",
+  "title": "工作台三栏壳层（展收/拖拽/记忆/滚动归属）",
+  "deps_css": [
+    "button",
+    "icon-button"
+  ],
+  "region": "shell",
+  "anatomy": [
+    "root:div.ds-shell[data-left][data-right][data-ready]",
+    "left:aside.ds-shell__left > left-body[data-region=left-body]（折叠态整栏 width:0，无 rail）",
+    "center:section.ds-shell__center > center-header[data-region=center-header，内含左栏唯一展收钮 + 右栏打开钮 right-open（仅右栏收起时显示，hidden 属性 + .ds-icon-btn[hidden] 真正 display:none）] + scroll[data-region=conversation] + composer[data-region=composer]",
+    "resize:div.ds-shell__resize[role=separator][aria-orientation=vertical]",
+    "right:aside.ds-shell__right > right-header（含关闭钮 right-close，仅右栏展开时可见） + right-scroll[data-region=artifact]"
+  ],
+  "variants": [
+    "左栏开 260/折叠（0，仅中栏 header 唯一展收钮）",
+    "右栏开（只显示右栏内关闭钮）/关闭（0，只显示中栏打开钮，两钮互斥 WS-15b）",
+    "右栏拖拽宽 320–720，中栏恒 ≥360"
+  ],
+  "states": [
+    "ready(首帧无动画)",
+    "left-open/closed",
+    "right-open/closed",
+    "dragging（禁选文本/屏蔽右栏指针/无过渡）"
+  ],
+  "tokens": [
+    "--ds-left-width",
+    "--ds-left-min",
+    "--ds-left-max",
+    "--ds-right-width",
+    "--ds-right-min",
+    "--ds-right-max",
+    "--ds-center-min",
+    "--ds-touch-target",
+    "--ds-space-1",
+    "--ds-space-2",
+    "--ds-divider",
+    "--ds-hover-fill",
+    "--ds-surface",
+    "--ds-t-slow",
+    "--ds-t-normal",
+    "--ds-ease-out",
+    "--ds-ease-standard"
+  ],
+  "slots": [
+    "区域内容全部来自后续组件：left-body←P7、center-header/conversation←P8、composer←P9、artifact←P10"
+  ],
+  "interaction": "Pointer Events 拖拽（setPointerCapture），实时钳制：右宽∈[320,720] 且 视口−左栏现宽−右宽≥360；键盘：分隔条聚焦后 ←加宽/→减宽 16px 步进、Home/End；状态写 localStorage 约定键；artifact:open 事件保证右栏打开；全页仅三个区域滚动容器，body 不滚。",
+  "contract_refs": [
+    "WS-1",
+    "WS-2",
+    "WS-3",
+    "WS-4",
+    "WS-5",
+    "WS-6",
+    "WS-7",
+    "WS-8",
+    "WS-9",
+    "WS-10",
+    "WS-11",
+    "WS-12",
+    "WS-13",
+    "WS-14",
+    "WS-15",
+    "WS-15b",
+    "WS-16",
+    "WS-17"
+  ],
+  "events": [
+    "document 监听 sidebar:toggle {collapsed:boolean}",
+    "document 监听 rightpanel:toggle {open:boolean}（open 可省略=取反）",
+    "document 监听 artifact:open（任何载荷）→ 保证右栏打开",
+    "pointerup 后派发 rightpanel:resize {width:number}（bubbles）"
+  ],
+  "localStorage": {
+    "ds.chat-workbench.sidebar.collapsed": "\"1\"/\"0\"",
+    "ds.chat-workbench.rightPanel.open": "\"1\"/\"0\"",
+    "ds.chat-workbench.rightPanel.width": "像素数字字符串，读取时钳制回区间"
+  },
+  "forbidden": [
+    "body 或壳根出现滚动条；同区双纵向滚动",
+    "右栏做成覆盖式抽屉（必须参与 flex 挤压中栏，WS-X2）",
+    "拖拽用 mousemove/jQuery/动画库；拖拽中仍开过渡",
+    "拖拽中不屏蔽右栏内容指针事件导致 reflow 闪烁",
+    "状态写入 cookie/sessionStorage/后端",
+    "首帧播放开屏恢复动画",
+    "左栏被拖拽调宽（v1 只展收）",
+    "1280 宽下右栏打开使中栏 <360"
+  ]
+}
+</script>
+<style>
+/*
+ * AI 原生原型设计 — 设计令牌（CSS 变量）
+ * 由 tokens/tokens.json 生成，请勿手工维护本文件；修改令牌请改 tokens.json。
+ * 组件只允许引用 var(--ds-*)，禁止裸值。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 文字 */
+  --ds-text-primary: #1F1F1F;
+  --ds-text-secondary: #595959;
+  --ds-text-tertiary: #787878;
+  --ds-text-quaternary: #B3B3B3;
+  --ds-on-primary: #FFFFFF;
+
+  /* 表面 */
+  --ds-surface: #FFFFFF;
+  --ds-surface-muted: #F7F7F7;
+  --ds-surface-raised: #FFFFFF;
+  --ds-surface-strong: #F0F0F0;
+
+  /* 结构 */
+  --ds-border: #E5E5E5;
+  --ds-border-strong: #D4D4D4;
+  --ds-divider: #EBEBEB;
+
+  /* 交互中性态（灰阶，不是蓝） */
+  --ds-hover-fill: rgba(0, 0, 0, 0.04);
+  --ds-active-fill: rgba(0, 0, 0, 0.08);
+  --ds-scrim: rgba(0, 0, 0, 0.45);
+
+  /* 语义色 */
+  --ds-color-danger: #DC2626;
+  --ds-on-danger: #FFFFFF;
+  --ds-color-positive: #16A34A;
+  --ds-color-warning: #B45309;
+
+  /* 强调蓝：仅数据可视化与真实语义 */
+  --ds-color-accent: #2563EB;
+  --ds-on-accent: #FFFFFF;
+
+  /* 图表系列 */
+  --ds-chart-1: #2563EB;
+  --ds-chart-2: #DC2626;
+  --ds-chart-3: #16A34A;
+  --ds-chart-4: #7C3AED;
+  --ds-chart-5: #8C8C8C;
+
+  /* 间距阶 4/8/12/16/20/24/32 */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 32px;
+
+  /* 圆角阶 */
+  --ds-radius-small: 4px;
+  --ds-radius-chip: 6px;
+  --ds-radius-button: 8px;
+  --ds-radius-input: 10px;
+  --ds-radius-panel: 12px;
+  --ds-radius-large: 16px;
+  --ds-radius-full: 9999px;
+
+  /* 动效 */
+  --ds-t-micro: 80ms;
+  --ds-t-fast: 120ms;
+  --ds-t-normal: 200ms;
+  --ds-t-slow: 300ms;
+  --ds-t-spin: 1s;
+  --ds-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ds-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 字体 */
+  --ds-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --ds-font-serif: Georgia, "Songti SC", "SimSun", serif;
+
+  /* 排版 */
+  --ds-fs-caption: 12px;
+  --ds-lh-caption: 18px;
+  --ds-fs-compact: 14px;
+  --ds-lh-compact: 22px;
+  --ds-fs-body: 16px;
+  --ds-lh-body: 24px;
+  --ds-fs-title: 17px;
+  --ds-lh-title: 26px;
+  --ds-fs-page: 20px;
+  --ds-lh-page: 28px;
+  --ds-fs-display: 32px;
+  --ds-lh-display: 1.2;
+  --ds-weight-regular: 400;
+  --ds-weight-medium: 500;
+
+  /* 阴影与焦点环 */
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --ds-focus-ring: 0 0 0 2px rgba(31, 31, 31, 0.35);
+
+  /* 壳层几何 */
+  --ds-left-width: 260px;
+  --ds-left-min: 240px;
+  --ds-left-max: 320px;
+  --ds-right-width: 480px;
+  --ds-right-min: 320px;
+  --ds-right-max: 720px;
+  --ds-center-min: 360px;
+  --ds-touch-target: 44px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ds-text-primary: #F5F5F5;
+  --ds-text-secondary: #B8B8B8;
+  --ds-text-tertiary: #8C8C8C;
+  --ds-text-quaternary: #595959;
+  --ds-on-primary: #1A1A1A;
+
+  --ds-surface: #1A1A1A;
+  --ds-surface-muted: #222222;
+  --ds-surface-raised: #242424;
+  --ds-surface-strong: #2E2E2E;
+
+  --ds-border: rgba(255, 255, 255, 0.12);
+  --ds-border-strong: rgba(255, 255, 255, 0.20);
+  --ds-divider: rgba(255, 255, 255, 0.08);
+
+  --ds-hover-fill: rgba(255, 255, 255, 0.06);
+  --ds-active-fill: rgba(255, 255, 255, 0.10);
+  --ds-scrim: rgba(0, 0, 0, 0.60);
+
+  --ds-color-danger: #F26D6D;
+  --ds-on-danger: #1A1A1A;
+  --ds-color-positive: #4CC38A;
+  --ds-color-warning: #F5B544;
+
+  --ds-color-accent: #60A5FA;
+  --ds-on-accent: #0B1B33;
+
+  --ds-chart-1: #60A5FA;
+  --ds-chart-2: #F87171;
+  --ds-chart-3: #4ADE80;
+  --ds-chart-4: #A78BFA;
+  --ds-chart-5: #8C8C8C;
+
+  --ds-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4);
+  --ds-focus-ring: 0 0 0 2px rgba(245, 245, 245, 0.45);
+}
+
+/* 盒模型统一 border-box：几何 token 表达含边框的完整盒 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 页面基色单点定义：只有 body 可以设置页面背景；组件内部不再设置基色 */
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+  font-family: var(--ds-font-sans);
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-regular);
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 本地字体重置：控件继承 sans，数字使用 tabular-nums */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+svg text {
+  font-family: var(--ds-font-sans);
+}
+
+.ds-number,
+[class*="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 图标统一渲染：1.8px 线性、currentColor、round；外层 svg 必须带 viewBox="0 0 24 24"，
+   尺寸由其 width/height 属性控制（16/18/20/24），否则 <use> 内 symbol 会按 24px 原尺寸溢出被裁 */
+.ds-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+/* 原生控件保持中性，不用浏览器默认蓝 */
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"],
+progress {
+  accent-color: var(--ds-text-primary);
+}
+
+/* 统一焦点环：深色，不用蓝；box-shadow 自动跟随元素自身圆角，不在此覆盖圆角 */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* 尊重减弱动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== [复制区] 依赖组件 CSS：button（随本组件一并复制） ===== */
+/* button —— 基础按钮：颜色强调只用深色，灰阶承担交互态 */
+[data-component="button"] {
+  /* 组件自身无包裹样式；.ds-btn 为复制后使用的根类 */
+}
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--ds-space-4);
+  margin: 0;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-button);
+  background-color: var(--ds-surface-raised);
+  color: var(--ds-text-primary);
+  font-family: inherit;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    border-color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-btn:hover {
+  background-color: var(--ds-surface-strong);
+  border-color: var(--ds-border-strong);
+}
+
+.ds-btn:active {
+  background-color: var(--ds-surface-strong);
+}
+
+.ds-btn .ds-icon {
+  flex: none;
+}
+
+/* primary：深色实底；hover/active 用主题感知的中性叠加层（浅=压黑，深=提白） */
+.ds-btn--primary {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--primary:hover {
+  background-color: var(--ds-text-primary);
+  border-color: var(--ds-text-primary);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--primary:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* ghost：无底无框，仅 hover 显露灰底 */
+.ds-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.ds-btn--ghost:hover {
+  background-color: var(--ds-hover-fill);
+  border-color: transparent;
+}
+
+.ds-btn--ghost:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* danger：危险实底，仅用于删除等破坏性主动作 */
+.ds-btn--danger {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  color: var(--ds-on-danger);
+}
+
+.ds-btn--danger:hover {
+  background-color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+  background-image: linear-gradient(var(--ds-hover-fill), var(--ds-hover-fill));
+}
+
+.ds-btn--danger:active {
+  background-image: linear-gradient(var(--ds-active-fill), var(--ds-active-fill));
+}
+
+/* 尺寸 */
+.ds-btn--sm {
+  height: 28px;
+  padding: 0 var(--ds-space-3);
+  font-size: var(--ds-fs-caption);
+  border-radius: var(--ds-radius-chip);
+}
+
+/* 禁用：disabled 属性驱动，键盘不可达、不派发 click */
+.ds-btn:disabled,
+.ds-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background-image: none;
+}
+
+.ds-btn--primary:disabled,
+.ds-btn--danger:disabled {
+  background-color: var(--ds-text-quaternary);
+  border-color: var(--ds-text-quaternary);
+  color: var(--ds-on-primary);
+}
+
+.ds-btn--ghost:disabled {
+  background-color: transparent;
+}
+
+.ds-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+/* ===== [复制区] 依赖组件 CSS：icon-button（随本组件一并复制） ===== */
+/* icon-button —— 视觉盒 24/32，命中区恒 44px（::before 向四周外扩，不占布局） */
+.ds-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--ds-radius-button);
+  background-color: transparent;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  flex: none;
+  transition:
+    background-color var(--ds-t-fast) var(--ds-ease-standard),
+    color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+/* hidden 属性必须生效：本基元 display:inline-flex（作者样式）会压过 UA 的 [hidden]{display:none}，
+   不显式补回会导致"隐藏"按钮仍渲染（如壳层右栏互斥展收钮） */
+.ds-icon-btn[hidden] {
+  display: none;
+}
+
+/* 命中区外扩到触控下限：absolute 居中、不改变布局与视觉盒 */
+.ds-icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: var(--ds-touch-target);
+  min-height: var(--ds-touch-target);
+  margin: auto;
+}
+
+.ds-icon-btn:hover {
+  background-color: var(--ds-hover-fill);
+  color: var(--ds-text-primary);
+}
+
+.ds-icon-btn:active {
+  background-color: var(--ds-active-fill);
+}
+
+/* 选中/开关态：灰阶，不用彩色 */
+.ds-icon-btn.is-active,
+.ds-icon-btn[aria-pressed="true"] {
+  background-color: var(--ds-active-fill);
+  color: var(--ds-text-primary);
+}
+
+/* 置于填充区域内时的描边浅底变体 */
+.ds-icon-btn--subtle {
+  background-color: var(--ds-surface-muted);
+}
+
+.ds-icon-btn--subtle:hover {
+  background-color: var(--ds-surface-strong);
+}
+
+/* 小尺寸视觉盒（命中区仍 44）；圆角与 md 同档：规则映射 icon buttons 统一 8px */
+.ds-icon-btn--sm {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-button);
+}
+
+.ds-icon-btn:disabled,
+.ds-icon-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+  background-color: transparent;
+  color: var(--ds-text-quaternary);
+}
+
+.ds-icon-btn .ds-icon {
+  flex: none;
+}
+
+/* ===== [复制区] 组件 CSS 开始：workbench-shell ===== */
+/* workbench-shell —— 三栏几何；宽度由根上的 --shell-*-w 驱动，JS 只改这一个值 */
+.ds-shell {
+  --shell-left-w: var(--ds-left-width);
+  --shell-right-w: var(--ds-right-width);
+
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ds-surface);
+  color: var(--ds-text-primary);
+}
+
+/* ---------- 左栏 ---------- */
+.ds-shell__left {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: var(--shell-left-w);
+  overflow: hidden;
+  background: var(--ds-surface);
+  border-right: 1px solid var(--ds-divider);
+  transition: width var(--ds-t-slow) var(--ds-ease-out);
+}
+
+/* 收起态：宽度归 0，不保留 rail 容器；唯一展开入口是中栏 header 的展收钮（WS-15） */
+.ds-shell[data-left="closed"] .ds-shell__left {
+  width: 0;
+  border-right-color: transparent;
+}
+
+.ds-shell__left-body {
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ds-shell[data-left="closed"] .ds-shell__left-body {
+  display: none;
+}
+
+/* ---------- 中栏 ---------- */
+.ds-shell__center {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--ds-surface);
+}
+
+.ds-shell__center-header,
+.ds-shell__right-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  height: calc(var(--ds-touch-target) + var(--ds-space-1));
+  padding: 0 var(--ds-space-2);
+  background: var(--ds-surface);
+  border-bottom: 1px solid var(--ds-divider);
+}
+
+.ds-shell__header-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ds-shell__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ds-shell__composer {
+  flex: 0 0 auto;
+  min-width: 0; /* CP-24：父链解除隐式最小宽度，保证 composer 随中栏收缩，内部控件不溢出 */
+  /* 不画顶部分隔线：WS 合同未约定（1px divider 仅 header 下沿 WS-3 与手柄 WS-8）；
+     与消息区的分隔由 P9 composer 实物自行决定，welcome 居中态有线会突兀 */
+  background: var(--ds-surface);
+}
+
+.ds-shell__right-open {
+  flex: none;
+}
+
+/* ---------- 拖拽手柄（8px 命中条骑在右栏 1px 分界线上） ---------- */
+.ds-shell__resize {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 8px;
+  margin-left: -4px;
+  margin-right: -4px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+  background-color: transparent;
+}
+
+.ds-shell__resize:hover,
+.ds-shell__resize:focus-visible {
+  background-color: var(--ds-hover-fill);
+}
+
+/* ---------- 右栏 ---------- */
+.ds-shell__right {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: var(--shell-right-w);
+  overflow: hidden;
+  background: var(--ds-surface);
+  border-left: 1px solid var(--ds-divider);
+  transition: width var(--ds-t-slow) var(--ds-ease-out);
+}
+
+.ds-shell[data-right="closed"] .ds-shell__right {
+  width: 0;
+  border-left-color: transparent;
+}
+
+.ds-shell[data-right="closed"] .ds-shell__resize {
+  display: none;
+}
+
+.ds-shell__right-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-shell__right-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* ---------- 状态：首帧不做恢复动画；拖拽中关过渡 ---------- */
+.ds-shell:not([data-ready="1"]) .ds-shell__left,
+.ds-shell:not([data-ready="1"]) .ds-shell__right {
+  transition: none;
+}
+
+.ds-shell--dragging .ds-shell__left,
+.ds-shell--dragging .ds-shell__right {
+  transition: none;
+}
+
+/* 拖拽期间：全局禁选文本；右栏内容不吞指针事件，杜绝 reflow 闪烁（WS-10/11） */
+body.ds-is-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+body.ds-is-resizing .ds-shell__right-scroll {
+  pointer-events: none;
+}
+
+body.ds-is-resizing .ds-shell__resize {
+  background-color: var(--ds-hover-fill);
+}
+/* ===== [复制区] 组件 CSS 结束：workbench-shell ===== */
+
+/* —— 演示外壳（仅供组件实物页，禁止复制进交付物）—— */
+.demo-topbar { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:12px;
+  height:48px; padding:0 16px; background:var(--ds-surface); border-bottom:1px solid var(--ds-divider); }
+.demo-topbar__title { font-size:var(--ds-fs-compact); font-weight:var(--ds-weight-medium); }
+.demo-topbar__tag { font-size:var(--ds-fs-caption); color:var(--ds-text-tertiary); }
+.demo-topbar__spacer { flex:1; }
+.demo-main { padding:24px; }
+.demo-section { margin-bottom:24px; }
+.demo-section > h3 { font-size:var(--ds-fs-caption); font-weight:var(--ds-weight-medium);
+  color:var(--ds-text-tertiary); margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; }
+.demo-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.demo-row + .demo-row { margin-top:12px; }
+.demo-canvas { border:1px dashed var(--ds-border-strong); border-radius:var(--ds-radius-panel); padding:16px; }
+
+/* shell 演示页：占满视口、body 不滚（验证 WS-1），topbar 之外全给壳层 */
+html, body { height: 100%; }
+body { overflow: hidden; }
+.demo-main { height: calc(100vh - 48px); padding: 0; }
+
+/* 区域填充：模拟后续 P7–P10 组件内容，验证滚动归属与几何 */
+.m2-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 12px;
+  font-weight: var(--ds-weight-medium);
+  font-size: var(--ds-fs-compact);
+  border-bottom: 1px solid var(--ds-divider);
+}
+.m2-brand__logo {
+  display: inline-flex;
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
+  align-items: center; justify-content: center;
+}
+.m2-row {
+  display: block;
+  padding: 8px 12px;
+  font-size: var(--ds-fs-compact);
+  color: var(--ds-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.m2-row:hover { background: var(--ds-hover-fill); color: var(--ds-text-primary); }
+.m2-group-title {
+  padding: 12px 12px 4px;
+  font-size: var(--ds-fs-caption);
+  color: var(--ds-text-tertiary);
+}
+.m2-header-label {
+  font-size: var(--ds-fs-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-tertiary);
+  white-space: nowrap;
+}
+.m2-arti-title { padding: 12px; font-size: var(--ds-fs-caption); color: var(--ds-text-tertiary); }
+.m2-composer-demo {
+  margin: 12px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-input);
+  padding: 12px;
+  font-size: var(--ds-fs-compact);
+  color: var(--ds-text-tertiary);
+}
+
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <defs>
+    <!-- 渲染约定：引用侧 <svg class="ds-icon"><use href="#i-xxx"/></svg>；
+         .ds-icon 在 tokens.css 统一定义 fill:none / stroke:currentColor / 1.8px / round。
+         实心元素在自身标记 fill="currentColor" stroke="none"。 -->
+
+    <!-- 通用操作 -->
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-x"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-circle"><circle cx="12" cy="12" r="9"/></symbol>
+    <symbol id="i-pause"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-stop"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5"/></symbol>
+
+    <!-- 方向/展收 -->
+    <symbol id="i-chevron-right"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-left"><path d="m15 18-6-6 6-6"/></symbol>
+
+    <!-- 菜单/更多/导航 -->
+    <symbol id="i-menu"><path d="M4 12h16M4 6h16M4 18h16"/></symbol>
+    <symbol id="i-more-horizontal"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-list-tree"><path d="M4 6h.01M4 12h.01M4 18h.01"/><path d="M9 6h11M9 12h11M9 18h11"/></symbol>
+    <symbol id="i-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-alert-triangle"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 2.52h16.94a2 2 0 0 0 1.71-2.52L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+
+    <!-- 会话/项目 -->
+    <symbol id="i-message-plus"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M12 8v6M9 11h6"/></symbol>
+    <symbol id="i-folder"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-open"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-folder-plus"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13h6"/></symbol>
+    <symbol id="i-folder-input"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></symbol>
+    <symbol id="i-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z"/></symbol>
+
+    <!-- 行操作 -->
+    <symbol id="i-pencil"><path d="M21.17 6.81a1 1 0 0 0-3.98-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.63l4.35-1.32a2 2 0 0 0 .83-.5Z"/></symbol>
+    <symbol id="i-trash"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-copy"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-refresh"><path d="M3 12a9 9 0 0 1 15.74-6.26L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.74 6.26L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-share"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></symbol>
+    <symbol id="i-git-branch"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-thumb-up"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></symbol>
+    <symbol id="i-thumb-down"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></symbol>
+
+    <!-- 输入区 -->
+    <symbol id="i-send"><path d="M14.54 21.69a.5.5 0 0 0 .93-.03l6.5-19a.5.5 0 0 0-.63-.63l-19 6.5a.5.5 0 0 0-.03.93l7.93 3.18a2 2 0 0 1 1.11 1.11Z"/><path d="m21.85 2.15-10.94 10.94"/></symbol>
+    <symbol id="i-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-at-sign"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></symbol>
+    <symbol id="i-mic"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></symbol>
+
+    <!-- composer 加号收纳菜单（CP-25）：全部 24 网格手绘线性几何，保持 1.8 描边一致 -->
+    <symbol id="i-hash"><path d="M4 9h16M4 15h16M10 4 8.5 20M16 4l-1.5 16"/></symbol>
+    <symbol id="i-bolt"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12Z"/></symbol>
+    <symbol id="i-terminal"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="m7.5 9 3 3-3 3M13 15.5h4"/></symbol>
+    <symbol id="i-grid"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-blocks"><rect x="3.5" y="8" width="5" height="12" rx="1.2"/><rect x="9.5" y="4.5" width="5" height="15.5" rx="1.2"/><rect x="15.5" y="9.5" width="5" height="10.5" rx="1.2"/></symbol>
+    <symbol id="i-sliders"><path d="M3.5 7h6M14.5 7h6M3.5 12h2.5M12 12h8.5M3.5 17h10M18.5 17h2"/><circle cx="12.5" cy="7" r="2.2"/><circle cx="9" cy="12" r="2.2"/><circle cx="16" cy="17" r="2.2"/></symbol>
+
+    <!-- 知识库/智能体/用户/模型 -->
+    <symbol id="i-book-open"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/></symbol>
+    <symbol id="i-bot"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2"/><path d="M9 13v2M15 13v2"/></symbol>
+    <symbol id="i-user"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-sparkles"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0Z"/><path d="M20 3v4M22 5h-4M4 17v2M5 18H3"/></symbol>
+
+    <!-- 文件类型 -->
+    <symbol id="i-file"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></symbol>
+    <symbol id="i-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 16.5h6"/></symbol>
+    <symbol id="i-file-md"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8.5 17.5v-3.4l1.8 2.1 1.8-2.1v3.4"/></symbol>
+    <symbol id="i-file-sheet"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 12.5h6M9 15.5h6M11 11.5v6M14 11.5v6"/></symbol>
+    <symbol id="i-file-pdf"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9.2 17.2v-4h1.6a1.4 1.4 0 0 1 0 2.8H9.2"/></symbol>
+    <symbol id="i-image"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+
+    <!-- 产物面板：编辑/预览、代码文件、云盘、元素选择 -->
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></symbol>
+    <symbol id="i-file-code" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m10 13-2 2 2 2M14 13l2 2-2 2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 5 12 7-12 7Z"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24"><rect x="4" y="5" width="10" height="9" rx="1.5"/><path d="M19 13.8V19h-5.2"/><path d="m12.5 12.5 6.5 6.5"/></symbol>
+
+    <!-- 壳层面板 -->
+    <symbol id="i-panel-left"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-panel-right"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  </defs>
+</svg>
+
+<div class="demo-topbar">
+  <span class="demo-topbar__title">chat-workbench / workbench-shell</span>
+  <span class="demo-topbar__tag">工作台三栏壳层（展收/拖拽/记忆/滚动归属）</span>
+  <span class="demo-topbar__spacer"></span>
+  <button class="ds-btn ds-btn--ghost" id="demo-theme" type="button">切换浅/深主题</button>
+</div>
+<main class="demo-main">
+<!-- ===== [复制区] 组件 HTML 开始：workbench-shell ===== -->
+<div data-component="workbench-shell" class="ds-shell" data-left="open" data-right="open" data-ready="0">
+  <!-- 左栏：P7 组件（brand-header/new/search/tool-nav/history-tree/user-card）挂载到 [data-region=left-body] -->
+  <aside class="ds-shell__left" aria-label="工作台侧边栏">
+    <div class="ds-shell__left-body" data-region="left-body"></div>
+  </aside>
+
+  <!-- 中栏：header=conversation-header(P8)；scroll=消息流/welcome；composer=P9 -->
+  <section class="ds-shell__center">
+    <header class="ds-shell__center-header">
+      <button type="button" class="ds-icon-btn" data-action="left-toggle"
+        aria-label="折叠左栏" aria-expanded="true">
+        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-panel-left"></use></svg>
+      </button>
+      <div class="ds-shell__header-slot" data-region="center-header"></div>
+      <button type="button" class="ds-icon-btn ds-shell__right-open" data-action="right-open"
+        aria-label="打开产物面板" aria-expanded="false" hidden>
+        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-panel-right"></use></svg>
+      </button>
+    </header>
+    <div class="ds-shell__scroll" data-region="conversation"></div>
+    <div class="ds-shell__composer" data-region="composer"></div>
+  </section>
+
+  <!-- 手柄骑在中/右栏分界线上；右栏关闭时整块隐藏（CSS） -->
+  <div class="ds-shell__resize" role="separator" aria-orientation="vertical" tabindex="0"
+    title="拖拽调整产物面板宽度" aria-label="产物面板宽度"
+    aria-valuemin="320" aria-valuemax="720" aria-valuenow="480">
+  </div>
+
+  <!-- 右栏：P10 组件（artifact-tabs/toolbar/file-tree/document-preview）挂载到 [data-region=artifact] -->
+  <aside class="ds-shell__right" aria-label="产物面板">
+    <header class="ds-shell__right-header">
+      <span class="ds-shell__right-title">产物</span>
+      <button type="button" class="ds-icon-btn" data-action="right-close"
+        aria-label="关闭产物面板" aria-expanded="true">
+        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-panel-right"></use></svg>
+      </button>
+    </header>
+    <div class="ds-shell__right-scroll" data-region="artifact"></div>
+  </aside>
+</div>
+<!-- ===== [复制区] 组件 HTML 结束：workbench-shell ===== -->
+</main>
+<script>
+
+
+/* ===== [复制区] 组件 JS 开始：workbench-shell ===== */
+/* workbench-shell
+ * 自动初始化 [data-component="workbench-shell"]。
+ * 事件总线（document 级 CustomEvent）：
+ *   sidebar:toggle     {collapsed:boolean}     折叠/展开左栏
+ *   rightpanel:toggle  {open:boolean}          打开/关闭右栏（open 省略=取反）
+ *   artifact:open      任意载荷                  保证右栏打开（WS-14）
+ *   rightpanel:resize  {width:number}           拖拽/键盘调宽提交后由壳派发（bubbles）
+ * localStorage 键见 spec.localStorage；非法值回退 token 默认。
+ */
+(function () {
+  'use strict';
+
+  var KEY = {
+    leftCollapsed: 'ds.chat-workbench.sidebar.collapsed',
+    rightOpen: 'ds.chat-workbench.rightPanel.open',
+    rightWidth: 'ds.chat-workbench.rightPanel.width'
+  };
+  var STEP = 16; // 键盘调宽步进 = --ds-space-4
+
+  function tokenPx(root, name, fallback) {
+    var v = parseFloat(getComputedStyle(root).getPropertyValue(name));
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function readBool(key, def) {
+    try {
+      var v = localStorage.getItem(key);
+      if (v === null) return def;
+      return v === '1';
+    } catch (e) { return def; }
+  }
+
+  function writeBool(key, val) {
+    try { localStorage.setItem(key, val ? '1' : '0'); } catch (e) { /* 隐私模式降级为内存态 */ }
+  }
+
+  function readNum(key, def) {
+    try {
+      var v = parseFloat(localStorage.getItem(key));
+      return Number.isFinite(v) ? v : def;
+    } catch (e) { return def; }
+  }
+
+  function writeNum(key, val) {
+    try { localStorage.setItem(key, String(Math.round(val))); } catch (e) { /* ignore */ }
+  }
+
+  function clamp(v, min, max) {
+    return Math.min(max, Math.max(min, v));
+  }
+
+  function init(root) {
+    if (root.__dsShellInit) return;
+    root.__dsShellInit = true;
+
+    var leftEl = root.querySelector('.ds-shell__left');
+    var rightEl = root.querySelector('.ds-shell__right');
+    var handle = root.querySelector('.ds-shell__resize');
+    var btnLeftToggle = root.querySelector('[data-action="left-toggle"]');
+    var btnRightOpen = root.querySelector('[data-action="right-open"]');
+    var btnRightClose = root.querySelector('[data-action="right-close"]');
+
+    var limits = {
+      rightMin: tokenPx(root, '--ds-right-min', 320),
+      rightMax: tokenPx(root, '--ds-right-max', 720),
+      centerMin: tokenPx(root, '--ds-center-min', 360)
+    };
+
+    // 初始优先级：localStorage 记忆 > data-left/data-right 声明默认 > 全打开
+    var attrLeftClosed = root.getAttribute('data-left') === 'closed';
+    var attrRightOpen = root.getAttribute('data-right') !== 'closed';
+    var state = {
+      leftCollapsed: readBool(KEY.leftCollapsed, attrLeftClosed),
+      rightOpen: readBool(KEY.rightOpen, attrRightOpen),
+      rightWidth: readNum(KEY.rightWidth, tokenPx(root, '--ds-right-width', 480))
+    };
+
+    function currentLeftWidth() {
+      return leftEl.getBoundingClientRect().width;
+    }
+
+    /* 视口约束：中栏不得小于 centerMin；返回当前合法右宽上限 */
+    function maxWidthForViewport() {
+      return window.innerWidth - currentLeftWidth() - limits.centerMin;
+    }
+
+    function clampRight(w) {
+      return clamp(w, limits.rightMin, Math.max(limits.rightMin, maxWidthForViewport()));
+    }
+
+    function emit(name, detail) {
+      root.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail || {} }));
+    }
+
+    function sync() {
+      root.dataset.left = state.leftCollapsed ? 'closed' : 'open';
+      root.dataset.right = state.rightOpen ? 'open' : 'closed';
+
+      var w = clampRight(state.rightWidth);
+      root.style.setProperty('--shell-right-w', w + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(w)));
+
+      btnLeftToggle.setAttribute('aria-expanded', String(!state.leftCollapsed));
+      btnLeftToggle.setAttribute('aria-label', state.leftCollapsed ? '展开左栏' : '折叠左栏');
+      // 右栏展收入口互斥：展开只留右栏 header 的关闭钮；收起只留中栏 header 的打开钮
+      btnRightOpen.hidden = state.rightOpen;
+      btnRightOpen.setAttribute('aria-expanded', String(state.rightOpen));
+      btnRightClose.setAttribute('aria-expanded', String(state.rightOpen));
+    }
+
+    function setLeft(collapsed) {
+      var next = !!collapsed;
+      if (next === state.leftCollapsed && root.dataset.ready === '1') return;
+      state.leftCollapsed = next;
+      writeBool(KEY.leftCollapsed, next);
+      sync();
+    }
+
+    function setRight(open) {
+      var next = typeof open === 'boolean' ? open : !state.rightOpen;
+      state.rightOpen = next;
+      writeBool(KEY.rightOpen, next);
+      sync();
+    }
+
+    function setWidth(w, persist) {
+      state.rightWidth = clampRight(w);
+      root.style.setProperty('--shell-right-w', state.rightWidth + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(state.rightWidth)));
+      if (persist) {
+        writeNum(KEY.rightWidth, state.rightWidth);
+        emit('rightpanel:resize', { width: Math.round(state.rightWidth) });
+      }
+    }
+
+    /* ---- 内部按钮：统一走 document 事件，外部组件也能驱动 ---- */
+    btnLeftToggle.addEventListener('click', function () {
+      document.dispatchEvent(new CustomEvent('sidebar:toggle', { detail: { collapsed: !state.leftCollapsed } }));
+    });
+    btnRightOpen.addEventListener('click', function () {
+      document.dispatchEvent(new CustomEvent('rightpanel:toggle', { detail: { open: true } }));
+    });
+    btnRightClose.addEventListener('click', function () {
+      document.dispatchEvent(new CustomEvent('rightpanel:toggle', { detail: { open: false } }));
+    });
+
+    document.addEventListener('sidebar:toggle', function (e) {
+      setLeft(typeof e.detail.collapsed === 'boolean' ? e.detail.collapsed : !state.leftCollapsed);
+    });
+    document.addEventListener('rightpanel:toggle', function (e) {
+      setRight(e.detail && typeof e.detail.open === 'boolean' ? e.detail.open : undefined);
+    });
+    document.addEventListener('artifact:open', function () {
+      if (!state.rightOpen) setRight(true); // WS-14
+    });
+
+    /* ---- 拖拽调宽（Pointer Events） ---- */
+    var dragging = false;
+
+    function dragWidthFromX(clientX) {
+      return window.innerWidth - clientX;
+    }
+
+    /* move/up 挂在 window 而非手柄：不完全依赖 pointer capture 的事件重定向，
+       指针快速滑出或落在邻栏时拖拽也不中断（WS-9/11） */
+    function onDragMove(e) {
+      // 不提交（不 persist、不派发），只改一个 CSS 像素值
+      state.rightWidth = clampRight(dragWidthFromX(e.clientX));
+      root.style.setProperty('--shell-right-w', state.rightWidth + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(state.rightWidth)));
+    }
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      root.classList.remove('ds-shell--dragging');
+      document.body.classList.remove('ds-is-resizing');
+      window.removeEventListener('pointermove', onDragMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
+      try {
+        if (e && e.pointerId != null && handle.hasPointerCapture && handle.hasPointerCapture(e.pointerId)) {
+          handle.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) {}
+      writeNum(KEY.rightWidth, state.rightWidth);
+      emit('rightpanel:resize', { width: Math.round(state.rightWidth) });
+    }
+
+    handle.addEventListener('pointerdown', function (e) {
+      if (!state.rightOpen) return;
+      dragging = true;
+      e.preventDefault();
+      try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+      root.classList.add('ds-shell--dragging');
+      document.body.classList.add('ds-is-resizing');
+      window.addEventListener('pointermove', onDragMove);
+      window.addEventListener('pointerup', endDrag);
+      window.addEventListener('pointercancel', endDrag);
+    });
+
+    /* ---- 键盘：←加宽 →减宽（右栏锚定视口右缘），Home/End 极值 ---- */
+    handle.addEventListener('keydown', function (e) {
+      if (!state.rightOpen) return;
+      var w = state.rightWidth;
+      switch (e.key) {
+        case 'ArrowLeft': e.preventDefault(); setWidth(w + STEP, true); break;
+        case 'ArrowRight': e.preventDefault(); setWidth(w - STEP, true); break;
+        case 'Home': e.preventDefault(); setWidth(limits.rightMin, true); break;
+        case 'End': e.preventDefault(); setWidth(maxWidthForViewport(), true); break;
+      }
+    });
+
+    /* ---- 视口缩小时重新钳制（不写盘，避免抖动污染记忆） ---- */
+    window.addEventListener('resize', function () {
+      var w = clampRight(state.rightWidth);
+      state.rightWidth = w;
+      root.style.setProperty('--shell-right-w', w + 'px');
+      handle.setAttribute('aria-valuenow', String(Math.round(w)));
+    });
+
+    /* ---- 首帧直接终态，不开恢复动画（WS-13） ---- */
+    sync();
+    requestAnimationFrame(function () { root.dataset.ready = '1'; });
+
+    root.__dsShellApi = {
+      setLeft: setLeft,
+      setRight: setRight,
+      setWidth: function (w) { setWidth(w, true); },
+      state: state
+    };
+  }
+
+  function autoInit() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-component="workbench-shell"]'),
+      init
+    );
+  }
+
+  // 脚本位于 body 末尾，DOM 已就绪
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
+
+  window.DSWorkbenchShell = {
+    init: init,
+    forRoot: function (root) { return root && root.__dsShellApi; }
+  };
+})();
+/* ===== [复制区] 组件 JS 结束：workbench-shell ===== */
+</script>
+<script>
+/* —— 演示外壳脚本（禁止复制进交付物）—— */
+document.getElementById('demo-theme').addEventListener('click', () => {
+  const el = document.documentElement;
+  el.dataset.theme = el.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+
+/* 演示填充：分别灌入三个滚动容器，独立滚动 + 不出现整页滚动 */
+(function () {
+  var shell = document.querySelector('[data-component="workbench-shell"]');
+  var leftBody = shell.querySelector('[data-region="left-body"]');
+  var conv = shell.querySelector('[data-region="conversation"]');
+  var arti = shell.querySelector('[data-region="artifact"]');
+  var headerSlot = shell.querySelector('[data-region="center-header"]');
+  var composerSlot = shell.querySelector('[data-region="composer"]');
+
+  leftBody.innerHTML =
+    '<div class="m2-brand"><span class="m2-brand__logo"><svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg></span><span>__PRODUCT_NAME__（P7 brand-header）</span></div>' +
+    '<div class="m2-group-title">项目</div>' +
+    Array.from({ length: 12 }, function (_, i) {
+      return '<span class="m2-row"><svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="margin-right:var(--ds-space-1);color:var(--ds-text-tertiary);vertical-align:middle"><use href="#i-chevron-down"></use></svg>项目 ' + (i + 1) + ' — 历史树挂载位（P7 history-tree）</span>';
+    }).join('') +
+    '<div class="m2-group-title">最近</div>' +
+    Array.from({ length: 16 }, function (_, i) {
+      return '<span class="m2-row">· 最近会话 ' + (i + 1) + '（独立滚动验证）</span>';
+    }).join('');
+
+  headerSlot.innerHTML = '<span class="m2-header-label">conversation-header 挂载位（P8）— 中栏唯一主滚动区</span>';
+
+  conv.innerHTML =
+    '<div style="max-width:760px;margin:0 auto;padding:20px 16px">' +
+    Array.from({ length: 40 }, function (_, i) {
+      return '<p class="m2-row" style="padding:12px 0;color:var(--ds-text-secondary)">对话流内容行 ' + (i + 1) +
+        ' — 滚动此区域不应带动左/右栏，body 永不滚</p>';
+    }).join('') +
+    '</div>';
+
+  arti.innerHTML =
+    '<div class="m2-arti-title">artifact 挂载位（P10） · 当前右栏宽度：<span id="w-readout" class="ds-number">—</span>px（拖拽或←/→键后实时更新）</div>' +
+    Array.from({ length: 30 }, function (_, i) {
+      return '<span class="m2-row">产物内容行 ' + (i + 1) + '</span>';
+    }).join('');
+
+  composerSlot.innerHTML = '<div class="m2-composer-demo">composer 挂载位（P9）— 输入区钉底，不随对话流滚动</div>';
+
+  var readout = document.getElementById('w-readout');
+  function updateReadout() {
+    var w = Math.round(shell.querySelector('.ds-shell__right').getBoundingClientRect().width);
+    if (readout) readout.textContent = shell.dataset.right === 'open' ? String(w) : '已关闭';
+  }
+  shell.addEventListener('rightpanel:resize', updateReadout);
+  document.addEventListener('rightpanel:toggle', function () { requestAnimationFrame(updateReadout); });
+  requestAnimationFrame(updateReadout);
+})();
+
+</script>
+</body>
+</html>
