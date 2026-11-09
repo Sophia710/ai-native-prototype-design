@@ -17,7 +17,7 @@
   "region": "composer",
   "anatomy": [
     "trigger:button.ds-model-switch[data-component=model-switcher][aria-haspopup=listbox][aria-expanded]",
-    "icon:i-sparkles 16",
+    "icon:i-bot 16",
     "name:span.ds-model-switch__name（__MODEL_NAME__，单行省略）",
     "caret:i-chevron-down 16",
     "menu:DSPopoverMenu 两行项（名称 + __MODEL_N_DESC__，当前项尾 check）",
@@ -552,7 +552,7 @@ progress {
 }
 
 /* ===== [复制区] 组件 CSS 开始：model-switcher ===== */
-/* model-switcher —— 工具栏中部模型切换触发器（弹层复用 DSPopoverMenu，CP-17） */
+/* model-switcher —— 工具栏右侧模型切换触发器（贴发送钮，弹层复用 DSPopoverMenu，CP-17） */
 .ds-model-switch {
   display: inline-flex;
   align-items: center;
@@ -714,7 +714,7 @@ progress {
   <div class="demo-canvas" style="width:520px">
     <button type="button" class="ds-model-switch" data-component="model-switcher"
       aria-haspopup="listbox" aria-expanded="false">
-      <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+      <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-bot"></use></svg>
       <span class="ds-model-switch__name">__MODEL_NAME__</span>
       <svg class="ds-icon ds-model-switch__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
     </button>

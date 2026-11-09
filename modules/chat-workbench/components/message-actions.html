@@ -747,56 +747,121 @@ progress {
 }
 
 /* ===== [复制区] 依赖组件 CSS：step-timeline（随本组件一并复制） ===== */
-/* step-timeline —— done/running/waiting 三态清单（CS-5，CS-X4 全程黑白灰） */
+/* step-timeline —— 卡片式任务进度：头部计数 + 圆点连接时间线（CS-5，CS-X4 全程黑白灰） */
 .ds-steps {
   display: flex;
   flex-direction: column;
+  gap: var(--ds-space-3);
+  max-width: 520px;
+  padding: var(--ds-space-4);
+  box-sizing: border-box;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-surface);
+}
+
+/* ---------- 头部：图标 + 标题 + 自动计数 ---------- */
+.ds-steps__head {
+  display: flex;
+  align-items: center;
   gap: var(--ds-space-2);
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-primary);
+}
+
+.ds-steps__head-icon {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+
+.ds-steps__title {
+  font-weight: var(--ds-weight-medium);
+}
+
+.ds-steps__count {
+  margin-left: auto;
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 步骤列表：36px 行高 + 1px 连接线 ---------- */
+.ds-steps__list {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .ds-step {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: var(--ds-space-2);
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-height: 36px;
 }
 
+/* 圆点之间的纵向连接线（最后一行不画） */
+.ds-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 27px;
+  width: 1px;
+  height: 18px;
+  background: var(--ds-divider);
+}
+
+/* ---------- 圆点（21×21，z-index 压住连接线） ---------- */
 .ds-step__icon {
   flex: none;
   display: flex;
   align-items: center;
-  width: 20px;
-  height: var(--ds-lh-compact);
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--ds-surface);
+  position: relative;
+  z-index: 1;
 }
 
+/* done：深色实心 + 白对勾（黑白灰合同下的“完成”语义） */
 .ds-step--done .ds-step__icon {
-  color: var(--ds-text-secondary);
+  border: 1px solid var(--ds-text-primary);
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
 }
 
+/* running：5px 半透明光晕 + 实心深点 + 外圈描边，脉冲提示进行中 */
 .ds-step--running .ds-step__icon {
-  color: var(--ds-text-secondary);
+  border: 5px solid color-mix(in srgb, var(--ds-text-primary) 18%, transparent);
+  background: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+  animation: ds-step-pulse var(--ds-t-spin) var(--ds-ease-standard) infinite;
 }
 
+@keyframes ds-step-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--ds-text-primary); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-text-primary) 35%, transparent); }
+}
+
+/* waiting：空心圆 */
 .ds-step--waiting .ds-step__icon {
-  color: var(--ds-text-quaternary);
+  border: 1px solid var(--ds-border);
 }
 
-.ds-step__spinner {
-  display: block;
-  animation: ds-spin var(--ds-t-spin) linear infinite;
-}
-
-@keyframes ds-spin {
-  to { transform: rotate(360deg); }
-}
-
+/* ---------- 文本区 ---------- */
 .ds-step__main {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
 }
 
 .ds-step__toggle {
@@ -817,7 +882,7 @@ progress {
 }
 
 .ds-step--done .ds-step__action { color: var(--ds-text-secondary); }
-.ds-step--running .ds-step__action { color: var(--ds-text-primary); }
+.ds-step--running .ds-step__action { color: var(--ds-text-primary); font-weight: var(--ds-weight-medium); }
 .ds-step--waiting .ds-step__action { color: var(--ds-text-tertiary); }
 
 .ds-step__tool {
@@ -827,6 +892,7 @@ progress {
   color: var(--ds-text-tertiary);
 }
 
+/* 右侧状态小字：done=耗时（槽位），running=「进行中」 */
 .ds-step__dur {
   flex: none;
   margin-left: auto;
@@ -834,6 +900,10 @@ progress {
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
   font-variant-numeric: tabular-nums;
+}
+
+.ds-step--running .ds-step__dur {
+  color: var(--ds-text-primary);
 }
 
 .ds-step__detail {
@@ -850,9 +920,8 @@ progress {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ds-step__spinner {
+  .ds-step--running .ds-step__icon {
     animation: none;
-    opacity: 0.7;
   }
 }
 
@@ -1146,16 +1215,7 @@ progress {
   font-size: var(--ds-fs-caption);
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
-}
-
-/* 已打开弱态：图标/名称/状态全部降为弱色（CS-12） */
-.ds-artcard[data-open="true"] {
-  box-shadow: none;
-}
-
-.ds-artcard[data-open="true"] .ds-artcard__icon,
-.ds-artcard[data-open="true"] .ds-artcard__name {
-  color: var(--ds-text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===== [复制区] 依赖组件 CSS：message-bubble（随本组件一并复制） ===== */
@@ -1410,27 +1470,34 @@ progress {
           </div>
         </div>
 
-        <ol data-component="step-timeline" class="ds-steps">
-          <li class="ds-step ds-step--done" data-state="done">
-            <span class="ds-step__icon">
-              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-check-circle"></use></svg>
-            </span>
-            <span class="ds-step__main">
-              <span class="ds-step__action">__STEP_1_ACTION__</span>
-              <span class="ds-step__tool">__STEP_1_TOOL__</span>
+        <div data-component="step-timeline" class="ds-steps">
+          <div class="ds-steps__head">
+            <svg class="ds-icon ds-steps__head-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <strong class="ds-steps__title">__STEP_GROUP_TITLE__</strong>
+            <span class="ds-steps__count">2/2</span>
+          </div>
+          <ol class="ds-steps__list">
+            <li class="ds-step ds-step--done" data-state="done">
+              <span class="ds-step__icon">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><use href="#i-check"></use></svg>
+              </span>
+              <span class="ds-step__main">
+                <span class="ds-step__action">__STEP_1_ACTION__</span>
+                <span class="ds-step__tool">__STEP_1_TOOL__</span>
+              </span>
               <span class="ds-step__dur">__STEP_1_DURATION__</span>
-            </span>
-          </li>
-          <li class="ds-step ds-step--done" data-state="done">
-            <span class="ds-step__icon">
-              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-check-circle"></use></svg>
-            </span>
-            <span class="ds-step__main">
-              <span class="ds-step__action">__STEP_2_ACTION__</span>
+            </li>
+            <li class="ds-step ds-step--done" data-state="done">
+              <span class="ds-step__icon">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><use href="#i-check"></use></svg>
+              </span>
+              <span class="ds-step__main">
+                <span class="ds-step__action">__STEP_2_ACTION__</span>
+              </span>
               <span class="ds-step__dur">__STEP_2_DURATION__</span>
-            </span>
-          </li>
-        </ol>
+            </li>
+          </ol>
+        </div>
 
         <div data-component="markdown-body" class="ds-md">
           <h3>__MD_SAMPLE_HEADING__</h3>
@@ -1463,7 +1530,7 @@ progress {
             <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-md"></use></svg>
             <span class="ds-artcard__texts">
               <span class="ds-artcard__name">__FILE_NAME__</span>
-              <span class="ds-artcard__status">__ARTIFACT_SYNC_STATUS__</span>
+              <span class="ds-artcard__status">__ARTIFACT_META__</span>
             </span>
           </button>
         </div>
@@ -1751,9 +1818,19 @@ progress {
 })();
 
 /* ===== [复制区] 依赖组件 JS：step-timeline（随本组件一并复制） ===== */
-/* step-timeline —— running 行点击展开/收起详情（CS-5） */
+/* step-timeline —— 头部计数自动同步 + running 行点击展开/收起详情（CS-5） */
 (function () {
   'use strict';
+
+  function refreshCount(root) {
+    var count = root.querySelector('.ds-steps__count');
+    if (!count) return;
+    var items = root.querySelectorAll('.ds-step');
+    var done = root.querySelectorAll('.ds-step[data-state="done"]').length;
+    var next = done + '/' + items.length;
+    if (count.textContent === next) return;
+    count.textContent = next;
+  }
 
   function init(root) {
     if (root.__dsStepsInit) return;
@@ -1767,6 +1844,17 @@ progress {
       li.setAttribute('data-expanded', expanded ? 'false' : 'true');
       toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     });
+    refreshCount(root);
+    /* data-state 由外部脚本驱动（如流式回放）时，计数随 DOM 变化自动重算 */
+    if (typeof MutationObserver === 'function') {
+      var mo = new MutationObserver(function () { refreshCount(root); });
+      mo.observe(root, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['data-state']
+      });
+    }
   }
 
   function autoInit() {
@@ -1782,7 +1870,7 @@ progress {
     autoInit();
   }
 
-  window.DSStepTimeline = { init: init };
+  window.DSStepTimeline = { init: init, refresh: refreshCount };
 })();
 
 /* ===== [复制区] 依赖组件 JS：code-block（随本组件一并复制） ===== */
@@ -1855,7 +1943,7 @@ progress {
 })();
 
 /* ===== [复制区] 依赖组件 JS：artifact-card（随本组件一并复制） ===== */
-/* artifact-card —— 点击整卡派发 artifact:open {id,name,type}，并置已打开弱态（CS-10/CS-12） */
+/* artifact-card —— 点击整卡派发 artifact:open {id,name,type}（CS-10/CS-11）；状态行固定显示元信息，无已打开弱态 */
 (function () {
   'use strict';
 
@@ -1867,15 +1955,6 @@ progress {
     image: 'image',
     txt: 'file-text'
   };
-
-  function markOpen(card) {
-    card.setAttribute('data-open', 'true');
-    var status = card.querySelector('.ds-artcard__status');
-    if (status && status.getAttribute('data-default') === null) {
-      status.setAttribute('data-default', status.textContent);
-      status.textContent = '已打开';
-    }
-  }
 
   function init(root) {
     if (root.__dsArtCardInit) return;
@@ -1893,7 +1972,6 @@ progress {
       document.dispatchEvent(new CustomEvent('artifact:open', {
         detail: { id: id, name: name, type: type }
       }));
-      markOpen(card);
     });
   }
 

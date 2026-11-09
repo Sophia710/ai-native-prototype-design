@@ -38,7 +38,7 @@ composer：钉底（WS-2），见 composer.md
   - running："思考中…" + 三点动效（opacity 关键帧，`--ds-t-slow`，respect reduced-motion 时静态）；
   - collapsed（默认完成态）："已深度思考 N 秒 ›"（`__THINKING_DURATION__`），点击展开；
   - expanded：思考全文 + "收起"；同一轮只保留一个展开态。
-- **CS-5 step-timeline 三态**：done = check-circle（`--ds-text-secondary`）；running = circle + 旋转指示（1 圈/秒，reduced-motion 静止脉冲）；waiting = circle 空心 `--ds-text-quaternary`。每项：动作名 `__STEP_N_ACTION__`、工具名 `__STEP_N_TOOL__`（无工具不显示）、耗时 `__STEP_N_DURATION__`；running 项可展开详情 `__STEP_N_DETAIL__`。
+- **CS-5 step-timeline 三态**：卡片容器（1px `--ds-border`、`--ds-radius-panel`、padding `--ds-space-4`、max-width 520），头部 = sparkles 图标 + 标题 `__STEP_GROUP_TITLE__` + 右侧自动计数（done/total，JS 按 `data-state` 统计并跟随变更）。步骤行 36px 高，21×21 圆点，非末行圆点间画 1px 纵向连接线：done = 深色实心圆 + 白 check；running = 5px 18% 深灰光晕 + 实心深点 + 脉冲动画（reduced-motion 静止）；waiting = 空心圆 `--ds-border`。每项：动作名 `__STEP_N_ACTION__`、工具名 `__STEP_N_TOOL__`（无工具不显示）、右侧小字（done = 耗时 `__STEP_N_DURATION__`，running = 「进行中」）；running 项可展开详情 `__STEP_N_DETAIL__`。
 - **CS-6** 用户消息：黑底（`--ds-text-primary`）白字（`--ds-on-primary`）气泡，圆角 `--ds-radius-panel`，右对齐，最大宽 80%；AI 内容无容器、无灰气泡、无头像框，以 16px 无衬线正文直接成流。
 - **CS-7 markdown-body**：只渲染 h3/h4、p、ul/ol、table、blockquote、inline-code、code-block、strong/em/a（原型 a 无 href 或 #）；数字 tabular-nums；表格用 `--ds-border` 横线；等宽字体仅 code/技术标识符。
 
@@ -50,9 +50,9 @@ composer：钉底（WS-2），见 composer.md
 
 ## 4. 产物卡联动（artifact-card）
 
-- **CS-11** 卡结构：类型图标（按 `__ARTIFACT_TYPE__` 映射 file-md/file-sheet/file-pdf/file-text/image/file）+ 名称 `__ARTIFACT_NAME__` + 同步状态 `__ARTIFACT_SYNC_STATUS__`；整卡可点击（键盘 Enter），点击派发：
+- **CS-11** 卡结构：类型图标（按 `__ARTIFACT_TYPE__` 映射 file-md/file-sheet/file-pdf/file-text/image/file）+ 名称 `__ARTIFACT_NAME__` + 固定元信息行 `__ARTIFACT_META__`（**格式 · 大小 · 创建时间**，`tabular-nums`，恒定不变）；整卡可点击（键盘 Enter），点击派发：
   `artifact:open {id, name, type}`（shell 负责打开右栏，WS-14；右栏行为见 AP-3）。
-- **CS-12** 同一产物在右栏已打开时，卡片显示"已打开"弱态（`--ds-text-tertiary`），点击=聚焦已有页签而非新增。
+- **CS-12** 卡片视觉不随打开状态变化——不设"已打开"弱态、状态行不改写为动态文案；同一产物已在右栏打开时，点击=聚焦已有页签而非新增。
 
 ## 5. 操作条（message-actions）
 
@@ -69,7 +69,7 @@ composer：钉底（WS-2），见 composer.md
 
 - **CS-16** 所有卡片/ chip /操作图标都是 button 或 `role=button tabindex=0` 且 Enter/Space 等效；触控命中 ≥ `--ds-touch-target`（图标按钮本体 32 时由 hit-area 撑到 44）。
 - **CS-17** thinking 折叠按钮、step 详情、citation hover 摘要：hover 摘要同时提供 focus 可见（`focus-within` 显示），不用只依赖鼠标。
-- **CS-18** 推荐开场卡（welcome-state）可 Tab 聚焦，Enter 等价点击：把 `__SUGGESTED_PROMPT_N_TITLE__` 填入 composer 并直接发送（派发 `conversation:submit {text}`）。
+- **CS-18** 推荐开场卡（welcome-state）可 Tab 聚焦，Enter 等价点击：把 `__SUGGESTED_PROMPT_N_TITLE__` **填入 composer 但不发送**（派发 `composer:prefill {text, autosubmit:false}`），随后聚焦 textarea 并把光标置于文本末尾；发送仍需用户显式点击发送或 Enter。
 
 ## 6b. 卡面一致性与文档行
 

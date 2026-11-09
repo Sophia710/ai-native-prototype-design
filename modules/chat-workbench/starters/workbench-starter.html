@@ -635,7 +635,7 @@ body { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: var(--ds-space-2);
-  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-1);
+  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-2);
   font-size: var(--ds-fs-compact);
   font-weight: var(--ds-weight-medium);
   color: var(--ds-text-primary);
@@ -644,27 +644,18 @@ body { overflow: hidden; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--ds-radius-chip);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ds-radius-button);
   background: var(--ds-text-primary);
   color: var(--ds-on-primary);
   flex: none;
 }
-.t-new { padding: var(--ds-space-1) var(--ds-space-3) var(--ds-space-3); }
-/* 新建会话：中性灰底强引导（不是黑底 primary；黑底留给发送/危险以外的深色强调位） */
-.t-new__btn {
-  background: var(--ds-surface-strong);
-  border-color: transparent;
-  color: var(--ds-text-primary);
-}
-.t-new__btn:hover {
-  background: var(--ds-active-fill);
-  border-color: transparent;
-}
+.t-new { padding: var(--ds-space-3) var(--ds-space-3); }
+.t-new .ds-btn { height: 36px; }
 .t-left-stack { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
-.t-tools { padding: 0 var(--ds-space-2) var(--ds-space-3); }
+.t-tools { padding: 0 var(--ds-space-2) var(--ds-space-3); display: flex; flex-direction: column; gap: var(--ds-space-1); }
 .t-tools__title {
   padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1);
   font-size: var(--ds-fs-caption);
@@ -675,10 +666,10 @@ body { overflow: hidden; }
   display: flex;
   width: 100%;
   align-items: center;
-  gap: var(--ds-space-2);
+  gap: var(--ds-space-3);
   box-sizing: border-box;
-  height: 32px;
-  padding: 0 var(--ds-space-2);
+  height: 40px;
+  padding: 0 var(--ds-space-3);
   border: none;
   border-radius: var(--ds-radius-button);
   background: transparent;
@@ -716,12 +707,13 @@ body { overflow: hidden; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--ds-radius-full);
-  background: var(--ds-text-primary);
-  color: var(--ds-on-primary);
+  background: var(--ds-surface-strong);
+  color: var(--ds-text-primary);
   font-size: var(--ds-fs-caption);
+  font-weight: var(--ds-weight-medium);
   flex: none;
 }
 
@@ -739,56 +731,145 @@ body { overflow: hidden; }
   transition: transform var(--ds-t-slow) var(--ds-ease-out);
 }
 .ds-shell__center[data-stage="welcome"] .t-composer-stage {
-  /* 沉底文档流位置 → 视觉垂直居中（800 视口校准；几何只走合成层 transform） */
-  transform: translateY(-33vh);
+  /* 沉底文档流位置 → 视觉垂直居中（hero+输入区+快捷任务整体居中，几何只走合成层 transform） */
+  transform: translateY(calc(-50vh + 280px));
+}
+/* ---------- welcome 头部：问候语 + 副标题 ---------- */
+.t-welcome-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-5);
+  transition: opacity var(--ds-t-fast) var(--ds-ease-out);
 }
 .t-welcome__greeting {
-  margin: 0 0 var(--ds-space-6);
+  margin: 0;
   font-size: var(--ds-fs-display);
   line-height: var(--ds-lh-display);
   font-weight: var(--ds-weight-medium);
   text-align: center;
   transition: opacity var(--ds-t-fast) var(--ds-ease-out);
 }
-.t-suggestions {
+.t-welcome__subtitle {
+  margin: 0;
+  text-align: center;
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-secondary);
+}
+
+/* ---------- 快捷任务：区块头 + 2×2 富卡片 ---------- */
+.t-quick-head {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: baseline;
   gap: var(--ds-space-2);
+  width: 100%;
+  margin-top: var(--ds-space-5);
+  transition: opacity var(--ds-t-fast) var(--ds-ease-out);
+}
+.t-quick-head__title {
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+.t-quick-head__hint {
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+}
+.t-quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ds-space-3);
+  width: 100%;
   margin-top: var(--ds-space-3);
   transition: opacity var(--ds-t-fast) var(--ds-ease-out);
 }
-.t-suggestion {
+.t-quick-card {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-height: 80px;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-surface);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--ds-t-fast) var(--ds-ease-standard),
+    border-color var(--ds-t-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-t-fast) var(--ds-ease-standard);
+}
+.t-quick-card:hover {
+  border-color: var(--ds-text-secondary);
+  background: var(--ds-surface-muted);
+}
+.t-quick-card:focus-visible {
+  outline: none;
+  border-color: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+}
+.t-quick-card:active {
+  background: var(--ds-surface-strong);
+}
+.t-quick-icon {
   display: inline-flex;
   align-items: center;
-  gap: var(--ds-space-1);
-  height: 32px;
-  padding: 0 var(--ds-space-3);
-  border: 1px solid var(--ds-border);
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  box-sizing: border-box;
   border-radius: var(--ds-radius-button);
-  background: var(--ds-surface-raised);
+  background: var(--ds-surface-strong);
   color: var(--ds-text-primary);
-  font-family: inherit;
-  font-size: var(--ds-fs-compact);
-  cursor: pointer;
+  transition: color var(--ds-t-fast) var(--ds-ease-standard);
 }
-.t-suggestion:hover { border-color: var(--ds-border-strong); background: var(--ds-surface-muted); }
-.t-suggestion .ds-icon { color: var(--ds-text-secondary); }
+.t-quick-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.t-quick-title {
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+.t-quick-desc {
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.t-quick-chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--ds-text-tertiary);
+  transition: color var(--ds-t-fast) var(--ds-ease-standard);
+}
+.t-quick-card:hover .t-quick-chevron { color: var(--ds-text-primary); }
 
-/* chatting 态：greeting/chips 零占位淡出，组高收缩，composer 随 transform 归位沉底 */
-.ds-shell__center[data-stage="chatting"] .t-welcome__greeting,
-.ds-shell__center[data-stage="chatting"] .t-suggestions {
+/* chatting 态：hero/快捷任务零占位淡出，组高收缩，composer 随 transform 归位沉底 */
+.ds-shell__center[data-stage="chatting"] .t-welcome-hero,
+.ds-shell__center[data-stage="chatting"] .t-quick-head,
+.ds-shell__center[data-stage="chatting"] .t-quick-grid {
   opacity: 0;
   pointer-events: none;
 }
-.ds-shell__center[data-stage="chatting"] .t-welcome__greeting {
-  height: 0;
-  margin-bottom: 0;
-  overflow: hidden;
-}
-.ds-shell__center[data-stage="chatting"] .t-suggestions {
+.ds-shell__center[data-stage="chatting"] .t-welcome-hero,
+.ds-shell__center[data-stage="chatting"] .t-quick-head,
+.ds-shell__center[data-stage="chatting"] .t-quick-grid {
   height: 0;
   margin-top: 0;
+  margin-bottom: 0;
   overflow: hidden;
 }
 
@@ -802,9 +883,18 @@ body { overflow: hidden; }
   background: var(--ds-surface-raised);
   padding: var(--ds-space-2) var(--ds-space-3);
   container-type: inline-size; /* CP-24：为极端窄宽的模型钮收起提供容器查询基准 */
+  transition: border-color var(--ds-t-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-t-fast) var(--ds-ease-standard);
 }
-/* 聚焦态不额外画框：外框常驻 1px --ds-border，focus-within 时边框不变深、不加 focus ring
-   （CP-1：输入区焦点由文本光标自身表达，避免选中后四周突兀出现第二圈框线） */
+/* CP-1：hover 边框转 text-quaternary；聚焦（选中态）深色边框 + 1px 同色外圈（对齐参考稿 .composer:focus-within） */
+.t-composer:hover {
+  border-color: var(--ds-text-quaternary);
+}
+.t-composer:focus-within {
+  border-color: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+}
+/* 聚焦不画 ring（CP-1）：框色变化由外层 .t-composer:hover/:focus-within 承担 */
 .t-composer__textarea {
   display: block;
   width: 100%;
@@ -814,8 +904,8 @@ body { overflow: hidden; }
   outline: none;
   resize: none;
   overflow-x: hidden;
-  overflow-y: auto; /* 内容超过 8 行上限后框内纵向滚动，高度本身由 JS 钳制 */
-  max-height: calc(var(--ds-lh-body) * 8 + var(--ds-space-1) * 2); /* 最多 8 行：8*行高 + 上下 padding */
+  overflow-y: auto; /* 内容超过 10 行上限后框内纵向滚动，高度本身由 JS 钳制 */
+  max-height: calc(var(--ds-lh-body) * 10 + var(--ds-space-1) * 2); /* 最多 10 行：10*行高 + 上下 padding */
   background: transparent;
   font-family: inherit;
   font-size: var(--ds-fs-body);
@@ -865,7 +955,7 @@ body { overflow: hidden; }
 }
 .t-composer__model:hover { background: var(--ds-hover-fill); color: var(--ds-text-primary); }
 .t-composer__spacer { flex: 1 1 0; min-width: 0; }
-.t-composer__send { flex: none; background: var(--ds-text-quaternary); border-color: transparent; color: var(--ds-on-primary); }
+.t-composer__send { flex: none; width: 32px; min-width: 32px; padding: 0; background: var(--ds-text-quaternary); border-color: transparent; color: var(--ds-on-primary); }
 .t-composer__send:enabled { background: var(--ds-text-primary); border-color: var(--ds-text-primary); }
 /* 兜底必须置于模型钮常规规则之后（同特异性源序后者胜）：composer ≤240px 收起模型钮 */
 @container (max-width: 240px) {
@@ -1216,15 +1306,15 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
         <!-- P7 brand-header -->
         <div class="t-brand">
           <span class="t-brand__logo">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           </span>
           <span>__PRODUCT_NAME__</span>
         </div>
 
         <!-- P7 新建动作（路径 1：新建会话） -->
         <div class="t-new">
-          <button type="button" class="ds-btn ds-btn--block t-new__btn">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-message-plus"></use></svg>
+          <button type="button" class="ds-btn ds-btn--primary ds-btn--block t-new__btn">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-plus"></use></svg>
             <span class="ds-btn__label">新建会话</span>
           </button>
         </div>
@@ -1233,23 +1323,23 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
         <nav class="t-tools" aria-label="__TOOL_NAV_GROUP_TITLE__">
           <div class="t-tools__title">__TOOL_NAV_GROUP_TITLE__</div>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_1_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_2_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_3_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_4_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_5_NAME__</span>
           </button>
         </nav>
@@ -1258,7 +1348,7 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
         <div class="t-history">
           <div class="t-history__title">项目</div>
           <div class="t-history__empty">__PROJECT_1_NAME__（项目行由 history-tree 渲染）</div>
-          <div class="t-history__title">最近</div>
+          <div class="t-history__title">对话</div>
           <div class="t-history__empty">__RECENT_CONVERSATION_1_TITLE__（会话行由 history-tree 渲染）</div>
         </div>
 
@@ -1292,9 +1382,12 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
     <!-- P9 composer 挂载位：welcome 随 stage 居中，发送后下沉；发送/Enter/@/附件/语音由 composer 实物替换 -->
     <div class="ds-shell__composer" data-region="composer">
       <div class="t-composer-stage">
-        <h1 class="t-welcome__greeting">__GREETING__</h1>
+        <div class="t-welcome-hero">
+          <h1 class="t-welcome__greeting">__GREETING__</h1>
+          <p class="t-welcome__subtitle">从想法到成果，让 AI 帮你高效完成</p>
+        </div>
         <div class="t-composer">
-          <textarea class="t-composer__textarea" rows="1" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
+          <textarea class="t-composer__textarea" rows="3" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
           <div class="t-composer__bar">
             <!-- CP-25：附件 / @ 等输入能力统一收纳进加号菜单（语音仍常驻） -->
             <button type="button" class="ds-icon-btn t-composer__plus" aria-label="更多输入能力"
@@ -1304,12 +1397,12 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
             <button type="button" class="ds-icon-btn" aria-label="语音输入">
               <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-mic"></use></svg>
             </button>
+            <span class="t-composer__spacer"></span>
             <button type="button" class="t-composer__model">
-              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-bot"></use></svg>
               <span>__MODEL_NAME__</span>
               <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
             </button>
-            <span class="t-composer__spacer"></span>
             <button type="button" class="ds-btn ds-btn--primary t-composer__send" aria-disabled="true" disabled>
               <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-send"></use></svg>
             </button>
@@ -1476,22 +1569,58 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
             </button>
           </div>
         </div>
-        <div class="t-suggestions" aria-label="建议提问">
-          <button type="button" class="t-suggestion">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-            <span>__SUGGESTED_PROMPT_1_TITLE__</span>
+        <div class="t-quick-head">
+          <span class="t-quick-head__title">快捷任务</span>
+          <span class="t-quick-head__hint">选择一个模板快速开始</span>
+        </div>
+        <div class="t-quick-grid" aria-label="快捷任务">
+          <button type="button" class="t-quick-card" data-prompt="__SUGGESTED_PROMPT_1_TITLE__">
+            <span class="t-quick-icon" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-text"></use></svg>
+            </span>
+            <span class="t-quick-body">
+              <span class="t-quick-title">__SUGGESTED_PROMPT_1_TITLE__</span>
+              <span class="t-quick-desc">__SUGGESTED_PROMPT_1_DESC__</span>
+            </span>
+            <span class="t-quick-chevron" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </span>
           </button>
-          <button type="button" class="t-suggestion">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-            <span>__SUGGESTED_PROMPT_2_TITLE__</span>
+          <button type="button" class="t-quick-card" data-prompt="__SUGGESTED_PROMPT_2_TITLE__">
+            <span class="t-quick-icon" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            </span>
+            <span class="t-quick-body">
+              <span class="t-quick-title">__SUGGESTED_PROMPT_2_TITLE__</span>
+              <span class="t-quick-desc">__SUGGESTED_PROMPT_2_DESC__</span>
+            </span>
+            <span class="t-quick-chevron" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </span>
           </button>
-          <button type="button" class="t-suggestion">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-            <span>__SUGGESTED_PROMPT_3_TITLE__</span>
+          <button type="button" class="t-quick-card" data-prompt="__SUGGESTED_PROMPT_3_TITLE__">
+            <span class="t-quick-icon" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-clock"></use></svg>
+            </span>
+            <span class="t-quick-body">
+              <span class="t-quick-title">__SUGGESTED_PROMPT_3_TITLE__</span>
+              <span class="t-quick-desc">__SUGGESTED_PROMPT_3_DESC__</span>
+            </span>
+            <span class="t-quick-chevron" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </span>
           </button>
-          <button type="button" class="t-suggestion">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-            <span>__SUGGESTED_PROMPT_4_TITLE__</span>
+          <button type="button" class="t-quick-card" data-prompt="__SUGGESTED_PROMPT_4_TITLE__">
+            <span class="t-quick-icon" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-pencil"></use></svg>
+            </span>
+            <span class="t-quick-body">
+              <span class="t-quick-title">__SUGGESTED_PROMPT_4_TITLE__</span>
+              <span class="t-quick-desc">__SUGGESTED_PROMPT_4_DESC__</span>
+            </span>
+            <span class="t-quick-chevron" aria-hidden="true">
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </span>
           </button>
         </div>
       </div>
@@ -1850,6 +1979,16 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
   }
   ta.addEventListener('input', syncSend);
 
+  /* 快捷任务：点击只把任务文字填入输入框（不发送），并聚焦到末尾（CS-18） */
+  Array.prototype.forEach.call(center.querySelectorAll('.t-quick-card'), function (card) {
+    card.addEventListener('click', function () {
+      ta.value = (card.getAttribute('data-prompt') || card.textContent || '').trim();
+      ta.dispatchEvent(new window.Event('input'));
+      ta.focus();
+      try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (err) { /* 非文本输入框忽略 */ }
+    });
+  });
+
   function appendUserBubble(text) {
     var row = document.createElement('div');
     row.className = 't-user-row';
@@ -1867,7 +2006,7 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
     appendUserBubble(text);
     ta.value = '';
     syncSend();
-    ta.dispatchEvent(new window.Event('input')); /* 通知自适应逻辑把高度收回单行 */
+    ta.dispatchEvent(new window.Event('input')); /* 通知自适应逻辑把高度收回三行 */
     window.setTimeout(function () { scroll.scrollTop = scroll.scrollHeight; }, 320);
   }
 
@@ -1880,18 +2019,18 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
 
 /* ============================================================
    【模板状态演示】输入框高度自适应（参考交互）：
-   默认 1 行；随输入行数逐行增高；最多 8 行，超出后框内纵向滚动
-   （CSS max-height + overflow-y:auto 兜底）；清空发送后收回单行。
+   默认 3 行；随输入行数逐行增高；最多 10 行，超出后框内纵向滚动
+   （CSS max-height + overflow-y:auto 兜底）；清空发送后收回三行。
    P9 composer 实物沿用同一几何规则，几何基准：行高 24 + 上下 padding 4。
    ============================================================ */
 (function () {
   var ta = document.querySelector('.t-composer__textarea');
   if (!ta) return;
-  var MAX_LINES = 8;
+  var MIN_LINES = 3, MAX_LINES = 10;
   var cs = window.getComputedStyle(ta);
   var LINE = parseFloat(cs.lineHeight);
   var PAD = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-  var MIN_H = LINE + PAD;
+  var MIN_H = LINE * MIN_LINES + PAD;
   var MAX_H = LINE * MAX_LINES + PAD;
   function resize() {
     ta.style.height = 'auto';

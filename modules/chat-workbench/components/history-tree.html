@@ -799,7 +799,7 @@ progress {
 }
 
 .ds-history__group + .ds-history__group {
-  margin-top: var(--ds-space-4);
+  margin-top: var(--ds-space-5);
 }
 
 /* 分组标题行：chevron + 静态标题 + hover/focus-within 显露的 ＋ */
@@ -807,25 +807,32 @@ progress {
   display: flex;
   align-items: center;
   gap: var(--ds-space-1);
-  height: 32px;
-  padding: 0 var(--ds-space-2);
+  height: 40px;
+  padding: 0 var(--ds-space-3);
 }
 
-.ds-history__chev {
+/* 展收 chevron 旋转 —— 用 data-act 属性定位（右侧放置后不再有 .ds-history__chev 包裹类） */
+.ds-icon-btn[data-act="toggle-group"] .ds-icon,
+.ds-icon-btn[data-act="project-toggle"] .ds-icon {
   color: var(--ds-text-tertiary);
-}
-
-.ds-history__chev .ds-icon {
   transition: transform var(--ds-t-fast) var(--ds-ease-standard);
 }
 
-.ds-history__group[data-expanded="false"] > .ds-history__group-head .ds-history__chev .ds-icon {
+.ds-history__group[data-expanded="false"] > .ds-history__group-head .ds-icon-btn[data-act="toggle-group"] .ds-icon {
   transform: rotate(-90deg);
 }
 
+.ds-history__project[data-expanded="false"] > .ds-history__row--project .ds-icon-btn[data-act="project-toggle"] .ds-icon {
+  transform: rotate(-90deg);
+}
+
+/* 分组标题：自然宽度，chevron 紧贴标题右侧 */
 .ds-history__group-label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--ds-fs-caption);
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
@@ -835,6 +842,7 @@ progress {
 .ds-history__group-actions,
 .ds-history__row-actions {
   flex: none;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: var(--ds-space-1);
@@ -858,7 +866,7 @@ progress {
 .ds-history__group-body {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-space-1);
+  gap: var(--ds-space-2);
 }
 
 .ds-history__group[data-expanded="false"] > .ds-history__group-body {
@@ -869,13 +877,13 @@ progress {
 .ds-history__project {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-space-1);
+  gap: var(--ds-space-2);
 }
 
 .ds-history__project-body {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-space-1);
+  gap: var(--ds-space-2);
 }
 
 .ds-history__project[data-expanded="false"] .ds-history__project-body {
@@ -891,10 +899,10 @@ progress {
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--ds-space-2);
+  gap: var(--ds-space-3);
   box-sizing: border-box;
-  height: 32px;
-  padding: 0 var(--ds-space-2);
+  height: 40px;
+  padding: 0 var(--ds-space-3);
   border-radius: var(--ds-radius-button);
 }
 
@@ -907,8 +915,9 @@ progress {
   color: var(--ds-text-secondary);
 }
 
+/* 项目名：自然宽度，chevron 紧贴名称右侧 */
 .ds-history__label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -944,12 +953,12 @@ progress {
 }
 
 .ds-history__row--conversation {
-  padding-left: calc(var(--ds-space-2) + 24px + var(--ds-space-2));
+  padding-left: calc(var(--ds-space-3) + 16px + var(--ds-space-3));
 }
 
-/* 「最近」平铺会话不缩进 */
+/* 「最近」平铺会话：与项目名无层级关系，回退到基础 padding */
 .ds-history__row--conversation.ds-history__row--recent {
-  padding-left: var(--ds-space-2);
+  padding-left: var(--ds-space-3);
 }
 
 .ds-history__row--conversation.is-current {
@@ -1103,7 +1112,7 @@ progress {
     <h3>项目/会话两级历史树（260 左栏宽；hover 显露操作、双击名称重命名、置顶在前）</h3>
     <div class="demo-row">
       <button type="button" class="ds-btn" id="ht-new-conv-top">
-        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-message-plus"></use></svg>
+        <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-plus"></use></svg>
         <span class="ds-btn__label">新会话（装配层顶部入口）</span>
       </button>
       <button type="button" class="ds-btn" id="ht-new-project-top">
@@ -1559,7 +1568,7 @@ progress {
 (function (global) {
   'use strict';
 
-  var GROUP_LABELS = { projects: '项目', recent: '最近' };
+  var GROUP_LABELS = { projects: '项目', recent: '对话' };
 
   function emit(name, detail) {
     document.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
@@ -1924,9 +1933,9 @@ progress {
       ? iconBtn('data-act="project-create"', 'folder-plus', '新建项目')
       : iconBtn('data-act="conversation-create" data-in-project=""', 'message-plus', '新建会话');
     return '<div class="ds-history__group-head">' +
+      '<span class="ds-history__group-label">' + GROUP_LABELS[group] + '</span>' +
       iconBtn('data-act="toggle-group" data-group="' + group + '" aria-expanded="' + expanded + '"',
         'chevron-down', expanded ? '折叠' + GROUP_LABELS[group] + '分组' : '展开' + GROUP_LABELS[group] + '分组') +
-      '<span class="ds-history__group-label">' + GROUP_LABELS[group] + '</span>' +
       '<span class="ds-history__group-actions">' + create + '</span>' +
       '</div>';
   };
@@ -1953,10 +1962,10 @@ progress {
     var rowCls = 'ds-history__row ds-history__row--project' + (isParent ? ' is-parent' : '');
     return '<div class="ds-history__project" data-project-id="' + esc(p.id) + '" data-expanded="' + !!p.expanded + '">' +
       '<div class="' + rowCls + '" data-rename-row>' +
-      iconBtn('data-act="project-toggle" aria-expanded="' + !!p.expanded + '"',
-        'chevron-down', p.expanded ? '折叠项目' : '展开项目') +
       icon(p.expanded ? 'folder-open' : 'folder', 16).replace('class="ds-icon"', 'class="ds-icon ds-history__folder"') +
       '<span class="ds-history__label ds-rename__anchor" data-label>' + esc(p.title) + '</span>' +
+      iconBtn('data-act="project-toggle" aria-expanded="' + !!p.expanded + '"',
+        'chevron-down', p.expanded ? '折叠项目' : '展开项目') +
       this.renderRowActions(null) +
       '</div>' +
       '<div class="ds-history__project-body">' + rows + '</div>' +

@@ -302,16 +302,7 @@ progress {
   font-size: var(--ds-fs-caption);
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
-}
-
-/* 已打开弱态：图标/名称/状态全部降为弱色（CS-12） */
-.ds-artcard[data-open="true"] {
-  box-shadow: none;
-}
-
-.ds-artcard[data-open="true"] .ds-artcard__icon,
-.ds-artcard[data-open="true"] .ds-artcard__name {
-  color: var(--ds-text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===== [复制区] 组件CSS：artifact-panel ===== */
@@ -629,7 +620,7 @@ button.ds-launch-row:hover {
   display: flex;
   align-items: center;
   gap: var(--ds-space-2);
-  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-1);
+  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-2);
   font-size: var(--ds-fs-compact);
   line-height: var(--ds-lh-compact);
   font-weight: var(--ds-weight-medium);
@@ -641,9 +632,9 @@ button.ds-launch-row:hover {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--ds-radius-chip);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ds-radius-button);
   background: var(--ds-text-primary);
   color: var(--ds-on-primary);
 }
@@ -922,10 +913,22 @@ button.ds-launch-row:hover {
   background: var(--ds-surface-raised);
   padding: var(--ds-space-2) var(--ds-space-3);
   container-type: inline-size; /* CP-24：窄宽模型钮收起的容器查询基准 */
+  transition: border-color var(--ds-t-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-t-fast) var(--ds-ease-standard);
 }
 
-/* CP-1：外框常驻；聚焦不变色不套 ring。textarea 始终无 outline/box-shadow，
-   类+伪类 (0,2,0) 显式压过 tokens.css 全局 :focus-visible (0,1,0) */
+/* CP-1：hover 边框转 text-quaternary；聚焦（选中态）边框转深色 + 1px 同色外圈（对齐参考稿 .composer:focus-within） */
+.ds-composer:hover {
+  border-color: var(--ds-text-quaternary);
+}
+
+.ds-composer:focus-within {
+  border-color: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+}
+
+/* CP-1：框色变化只由外层 .ds-composer:hover/:focus-within 承担；
+   textarea 始终无 outline/box-shadow，类+伪类 (0,2,0) 显式压过 tokens.css 全局 :focus-visible (0,1,0) */
 .ds-composer__textarea {
   display: block;
   width: 100%;
@@ -936,7 +939,7 @@ button.ds-launch-row:hover {
   resize: none;
   overflow-x: hidden;
   overflow-y: auto;
-  max-height: calc(var(--ds-lh-body) * 8 + var(--ds-space-1) * 2); /* 最多 8 行 */
+  max-height: calc(var(--ds-lh-body) * 10 + var(--ds-space-1) * 2); /* 最多 10 行 */
   background: transparent;
   font-family: inherit;
   font-size: var(--ds-fs-body);
@@ -966,6 +969,9 @@ button.ds-launch-row:hover {
 
 .ds-composer__send {
   flex: none;
+  width: 32px;
+  min-width: 32px;
+  padding: 0; /* 正方形发送钮：32×32 */
   background: var(--ds-text-primary);
   border-color: var(--ds-text-primary);
   color: var(--ds-on-primary);
@@ -1627,7 +1633,7 @@ button.ds-launch-row:hover {
 }
 
 .ds-history__group + .ds-history__group {
-  margin-top: var(--ds-space-4);
+  margin-top: var(--ds-space-5);
 }
 
 /* 分组标题行：chevron + 静态标题 + hover/focus-within 显露的 ＋ */
@@ -1635,25 +1641,32 @@ button.ds-launch-row:hover {
   display: flex;
   align-items: center;
   gap: var(--ds-space-1);
-  height: 32px;
-  padding: 0 var(--ds-space-2);
+  height: 40px;
+  padding: 0 var(--ds-space-3);
 }
 
-.ds-history__chev {
+/* 展收 chevron 旋转 —— 用 data-act 属性定位（右侧放置后不再有 .ds-history__chev 包裹类） */
+.ds-icon-btn[data-act="toggle-group"] .ds-icon,
+.ds-icon-btn[data-act="project-toggle"] .ds-icon {
   color: var(--ds-text-tertiary);
-}
-
-.ds-history__chev .ds-icon {
   transition: transform var(--ds-t-fast) var(--ds-ease-standard);
 }
 
-.ds-history__group[data-expanded="false"] > .ds-history__group-head .ds-history__chev .ds-icon {
+.ds-history__group[data-expanded="false"] > .ds-history__group-head .ds-icon-btn[data-act="toggle-group"] .ds-icon {
   transform: rotate(-90deg);
 }
 
+.ds-history__project[data-expanded="false"] > .ds-history__row--project .ds-icon-btn[data-act="project-toggle"] .ds-icon {
+  transform: rotate(-90deg);
+}
+
+/* 分组标题：自然宽度，chevron 紧贴标题右侧 */
 .ds-history__group-label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--ds-fs-caption);
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
@@ -1663,6 +1676,7 @@ button.ds-launch-row:hover {
 .ds-history__group-actions,
 .ds-history__row-actions {
   flex: none;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: var(--ds-space-1);
@@ -1686,7 +1700,7 @@ button.ds-launch-row:hover {
 .ds-history__group-body {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-space-1);
+  gap: var(--ds-space-2);
 }
 
 .ds-history__group[data-expanded="false"] > .ds-history__group-body {
@@ -1697,13 +1711,13 @@ button.ds-launch-row:hover {
 .ds-history__project {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-space-1);
+  gap: var(--ds-space-2);
 }
 
 .ds-history__project-body {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-space-1);
+  gap: var(--ds-space-2);
 }
 
 .ds-history__project[data-expanded="false"] .ds-history__project-body {
@@ -1719,10 +1733,10 @@ button.ds-launch-row:hover {
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--ds-space-2);
+  gap: var(--ds-space-3);
   box-sizing: border-box;
-  height: 32px;
-  padding: 0 var(--ds-space-2);
+  height: 40px;
+  padding: 0 var(--ds-space-3);
   border-radius: var(--ds-radius-button);
 }
 
@@ -1735,8 +1749,9 @@ button.ds-launch-row:hover {
   color: var(--ds-text-secondary);
 }
 
+/* 项目名：自然宽度，chevron 紧贴名称右侧 */
 .ds-history__label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1772,12 +1787,12 @@ button.ds-launch-row:hover {
 }
 
 .ds-history__row--conversation {
-  padding-left: calc(var(--ds-space-2) + 24px + var(--ds-space-2));
+  padding-left: calc(var(--ds-space-3) + 16px + var(--ds-space-3));
 }
 
-/* 「最近」平铺会话不缩进 */
+/* 「最近」平铺会话：与项目名无层级关系，回退到基础 padding */
 .ds-history__row--conversation.ds-history__row--recent {
-  padding-left: var(--ds-space-2);
+  padding-left: var(--ds-space-3);
 }
 
 .ds-history__row--conversation.is-current {
@@ -2159,7 +2174,7 @@ button.ds-launch-row:hover {
 }
 
 /* ===== [复制区] 组件CSS：model-switcher ===== */
-/* model-switcher —— 工具栏中部模型切换触发器（弹层复用 DSPopoverMenu，CP-17） */
+/* model-switcher —— 工具栏右侧模型切换触发器（贴发送钮，弹层复用 DSPopoverMenu，CP-17） */
 .ds-model-switch {
   display: inline-flex;
   align-items: center;
@@ -2331,56 +2346,121 @@ button.ds-launch-row:hover {
 }
 
 /* ===== [复制区] 组件CSS：step-timeline ===== */
-/* step-timeline —— done/running/waiting 三态清单（CS-5，CS-X4 全程黑白灰） */
+/* step-timeline —— 卡片式任务进度：头部计数 + 圆点连接时间线（CS-5，CS-X4 全程黑白灰） */
 .ds-steps {
   display: flex;
   flex-direction: column;
+  gap: var(--ds-space-3);
+  max-width: 520px;
+  padding: var(--ds-space-4);
+  box-sizing: border-box;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-surface);
+}
+
+/* ---------- 头部：图标 + 标题 + 自动计数 ---------- */
+.ds-steps__head {
+  display: flex;
+  align-items: center;
   gap: var(--ds-space-2);
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-primary);
+}
+
+.ds-steps__head-icon {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+
+.ds-steps__title {
+  font-weight: var(--ds-weight-medium);
+}
+
+.ds-steps__count {
+  margin-left: auto;
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 步骤列表：36px 行高 + 1px 连接线 ---------- */
+.ds-steps__list {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .ds-step {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: var(--ds-space-2);
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-height: 36px;
 }
 
+/* 圆点之间的纵向连接线（最后一行不画） */
+.ds-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 27px;
+  width: 1px;
+  height: 18px;
+  background: var(--ds-divider);
+}
+
+/* ---------- 圆点（21×21，z-index 压住连接线） ---------- */
 .ds-step__icon {
   flex: none;
   display: flex;
   align-items: center;
-  width: 20px;
-  height: var(--ds-lh-compact);
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--ds-surface);
+  position: relative;
+  z-index: 1;
 }
 
+/* done：深色实心 + 白对勾（黑白灰合同下的“完成”语义） */
 .ds-step--done .ds-step__icon {
-  color: var(--ds-text-secondary);
+  border: 1px solid var(--ds-text-primary);
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
 }
 
+/* running：5px 半透明光晕 + 实心深点 + 外圈描边，脉冲提示进行中 */
 .ds-step--running .ds-step__icon {
-  color: var(--ds-text-secondary);
+  border: 5px solid color-mix(in srgb, var(--ds-text-primary) 18%, transparent);
+  background: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+  animation: ds-step-pulse var(--ds-t-spin) var(--ds-ease-standard) infinite;
 }
 
+@keyframes ds-step-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--ds-text-primary); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-text-primary) 35%, transparent); }
+}
+
+/* waiting：空心圆 */
 .ds-step--waiting .ds-step__icon {
-  color: var(--ds-text-quaternary);
+  border: 1px solid var(--ds-border);
 }
 
-.ds-step__spinner {
-  display: block;
-  animation: ds-spin var(--ds-t-spin) linear infinite;
-}
-
-@keyframes ds-spin {
-  to { transform: rotate(360deg); }
-}
-
+/* ---------- 文本区 ---------- */
 .ds-step__main {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
 }
 
 .ds-step__toggle {
@@ -2401,7 +2481,7 @@ button.ds-launch-row:hover {
 }
 
 .ds-step--done .ds-step__action { color: var(--ds-text-secondary); }
-.ds-step--running .ds-step__action { color: var(--ds-text-primary); }
+.ds-step--running .ds-step__action { color: var(--ds-text-primary); font-weight: var(--ds-weight-medium); }
 .ds-step--waiting .ds-step__action { color: var(--ds-text-tertiary); }
 
 .ds-step__tool {
@@ -2411,6 +2491,7 @@ button.ds-launch-row:hover {
   color: var(--ds-text-tertiary);
 }
 
+/* 右侧状态小字：done=耗时（槽位），running=「进行中」 */
 .ds-step__dur {
   flex: none;
   margin-left: auto;
@@ -2418,6 +2499,10 @@ button.ds-launch-row:hover {
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
   font-variant-numeric: tabular-nums;
+}
+
+.ds-step--running .ds-step__dur {
+  color: var(--ds-text-primary);
 }
 
 .ds-step__detail {
@@ -2434,9 +2519,8 @@ button.ds-launch-row:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ds-step__spinner {
+  .ds-step--running .ds-step__icon {
     animation: none;
-    opacity: 0.7;
   }
 }
 
@@ -2539,6 +2623,9 @@ button.ds-launch-row:hover {
 /* tool-nav —— 左栏工具导航：标题 + 槽位项；点击仅选中态，不导航 */
 .ds-toolnav {
   padding: 0 var(--ds-space-2) var(--ds-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
 }
 
 .ds-toolnav__title {
@@ -2552,10 +2639,10 @@ button.ds-launch-row:hover {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: var(--ds-space-2);
+  gap: var(--ds-space-3);
   box-sizing: border-box;
-  height: 32px;
-  padding: 0 var(--ds-space-2);
+  height: 40px;
+  padding: 0 var(--ds-space-3);
   border: none;
   border-radius: var(--ds-radius-button);
   background: transparent;
@@ -2605,12 +2692,13 @@ button.ds-launch-row:hover {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--ds-radius-full);
-  background: var(--ds-text-primary);
-  color: var(--ds-on-primary);
+  background: var(--ds-surface-strong);
+  color: var(--ds-text-primary);
   font-size: var(--ds-fs-caption);
+  font-weight: var(--ds-weight-medium);
 }
 
 .ds-usercard__name {
@@ -2670,17 +2758,25 @@ button.ds-launch-row:hover {
 }
 
 /* ===== [复制区] 组件CSS：welcome-state ===== */
-/* welcome-state —— 空白会话欢迎态：32 问候语 + 2×2 推荐开场卡 */
+/* welcome-state —— 空白会话欢迎态：问候语 + 副标题 + Quick tasks 2×2 */
 .ds-welcome {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--ds-space-7);
+  gap: var(--ds-space-6);
   width: 100%;
   max-width: 760px;
   margin: 0 auto;
   padding: var(--ds-space-7) var(--ds-space-4);
   box-sizing: border-box;
+}
+
+.ds-welcome__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-3);
+  width: 100%;
 }
 
 .ds-welcome__greeting {
@@ -2693,20 +2789,55 @@ button.ds-launch-row:hover {
   color: var(--ds-text-primary);
 }
 
+.ds-welcome__subtitle {
+  margin: 0;
+  text-align: center;
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-secondary);
+}
+
+/* 快捷任务区块：与输入框同宽 */
+.ds-welcome__suggest-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  width: 100%;
+}
+
+.ds-welcome__suggest-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-2);
+}
+
+.ds-suggest__heading {
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+
+.ds-suggest__hint {
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+}
+
 .ds-suggest {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--ds-space-4);
+  gap: var(--ds-space-3);
   width: 100%;
-  max-width: 640px;
 }
 
 .ds-suggest__card {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--ds-space-1);
-  padding: var(--ds-space-4);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-height: 80px;
+  padding: var(--ds-space-3) var(--ds-space-4);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-panel);
   background: var(--ds-surface);
@@ -2714,11 +2845,47 @@ button.ds-launch-row:hover {
   text-align: left;
   cursor: pointer;
   transition: background-color var(--ds-t-fast) var(--ds-ease-standard),
-    border-color var(--ds-t-fast) var(--ds-ease-standard);
+    border-color var(--ds-t-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-t-fast) var(--ds-ease-standard);
 }
 
+/* hover：边框转 secondary + 底色浅灰（对齐参考稿 .quick-card:hover） */
 .ds-suggest__card:hover {
+  border-color: var(--ds-text-secondary);
   background: var(--ds-surface-muted);
+}
+
+/* 选中（键盘聚焦与点击按下）：深色边框 + 1px 同色外圈，与输入框聚焦一致 */
+.ds-suggest__card:focus-visible {
+  outline: none;
+  border-color: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+}
+
+.ds-suggest__card:active {
+  background: var(--ds-surface-strong);
+}
+
+.ds-suggest__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  border-radius: var(--ds-radius-button);
+  background: var(--ds-surface-strong);
+  color: var(--ds-text-primary);
+  transition: color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-suggest__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .ds-suggest__title {
@@ -2732,6 +2899,20 @@ button.ds-launch-row:hover {
   font-size: var(--ds-fs-caption);
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-suggest__chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--ds-text-tertiary);
+  transition: color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-suggest__card:hover .ds-suggest__chevron {
+  color: var(--ds-text-primary);
 }
 
 /* ===== [复制区] 组件CSS：workbench-shell ===== */
@@ -2931,20 +3112,13 @@ body {
   flex: none;
 }
 
-/* 新建会话：中性灰底强引导（与两个 starter 的 .t-new 一致；黑底留给发送等深色强调位） */
+/* 新建会话：primary 深色实心强引导 + 36px 高度对齐整体节奏 */
 .pw-new {
-  padding: var(--ds-space-1) var(--ds-space-3) var(--ds-space-3);
+  padding: var(--ds-space-3) var(--ds-space-3);
 }
 
-.pw-new__btn {
-  background: var(--ds-surface-strong);
-  border-color: transparent;
-  color: var(--ds-text-primary);
-}
-
-.pw-new__btn:hover {
-  background: var(--ds-active-fill);
-  border-color: transparent;
+.pw-new .ds-btn {
+  height: 36px;
 }
 
 .pw-left > .ds-history {
@@ -3117,14 +3291,14 @@ body {
       <div class="pw-left">
         <div data-component="brand-header" class="ds-brand">
           <span class="ds-brand__logo">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           </span>
           <span class="ds-brand__name">AI 工作台</span>
         </div>
 
         <div class="pw-new">
-          <button type="button" class="ds-btn ds-btn--block pw-new__btn" id="pw-new-chat" data-component="button">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-message-plus"></use></svg>
+          <button type="button" class="ds-btn ds-btn--primary ds-btn--block pw-new__btn" id="pw-new-chat" data-component="button">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-plus"></use></svg>
             <span class="ds-btn__label">新建会话</span>
           </button>
         </div>
@@ -3132,23 +3306,23 @@ body {
         <nav data-component="tool-nav" class="ds-toolnav" id="pw-toolnav" aria-label="工具">
           <div class="ds-toolnav__title">工具</div>
           <button type="button" class="ds-toolnav__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>插件市场</span>
           </button>
           <button type="button" class="ds-toolnav__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-book-open"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-book-open"></use></svg>
             <span>模板库</span>
           </button>
           <button type="button" class="ds-toolnav__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-refresh"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-refresh"></use></svg>
             <span>自动化</span>
           </button>
           <button type="button" class="ds-toolnav__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-bot"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-bot"></use></svg>
             <span>办公助理</span>
           </button>
           <button type="button" class="ds-toolnav__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-folder"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-folder"></use></svg>
             <span>我的文件</span>
           </button>
         </nav>
@@ -3223,24 +3397,65 @@ body {
 
     <div class="ds-shell__scroll" data-region="conversation">
       <div data-component="welcome-state" class="ds-welcome" id="pw-welcome">
-        <h2 class="ds-welcome__greeting">你好，今天想一起做点什么？</h2>
-        <div class="ds-suggest" role="group" aria-label="推荐开场">
-          <button type="button" class="ds-suggest__card">
-            <span class="ds-suggest__title">写一份项目周报</span>
-            <span class="ds-suggest__desc">根据本周进展自动汇总</span>
-          </button>
-          <button type="button" class="ds-suggest__card">
-            <span class="ds-suggest__title">分析竞品功能差异</span>
-            <span class="ds-suggest__desc">输出对比表格与建议</span>
-          </button>
-          <button type="button" class="ds-suggest__card">
-            <span class="ds-suggest__title">起草会议议程</span>
-            <span class="ds-suggest__desc">含时间、议题与负责人</span>
-          </button>
-          <button type="button" class="ds-suggest__card">
-            <span class="ds-suggest__title">解读一份数据表</span>
-            <span class="ds-suggest__desc">给出关键指标解读</span>
-          </button>
+        <div class="ds-welcome__hero">
+          <h2 class="ds-welcome__greeting">你好，今天想一起做点什么？</h2>
+          <p class="ds-welcome__subtitle">从想法到成果，让 AI 帮你高效完成</p>
+        </div>
+        <div class="ds-welcome__suggest-block">
+          <div class="ds-welcome__suggest-head">
+            <span class="ds-suggest__heading">快捷任务</span>
+            <span class="ds-suggest__hint">选择一个模板快速开始</span>
+          </div>
+          <div class="ds-suggest" role="group" aria-label="推荐开场">
+            <button type="button" class="ds-suggest__card">
+              <span class="ds-suggest__icon" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-text"></use></svg>
+              </span>
+              <span class="ds-suggest__body">
+                <span class="ds-suggest__title">写一份项目周报</span>
+                <span class="ds-suggest__desc">根据本周进展自动汇总</span>
+              </span>
+              <span class="ds-suggest__chevron" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </span>
+            </button>
+            <button type="button" class="ds-suggest__card">
+              <span class="ds-suggest__icon" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+              </span>
+              <span class="ds-suggest__body">
+                <span class="ds-suggest__title">分析竞品功能差异</span>
+                <span class="ds-suggest__desc">输出对比表格与建议</span>
+              </span>
+              <span class="ds-suggest__chevron" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </span>
+            </button>
+            <button type="button" class="ds-suggest__card">
+              <span class="ds-suggest__icon" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-clock"></use></svg>
+              </span>
+              <span class="ds-suggest__body">
+                <span class="ds-suggest__title">起草会议议程</span>
+                <span class="ds-suggest__desc">含时间、议题与负责人</span>
+              </span>
+              <span class="ds-suggest__chevron" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </span>
+            </button>
+            <button type="button" class="ds-suggest__card">
+              <span class="ds-suggest__icon" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-pencil"></use></svg>
+              </span>
+              <span class="ds-suggest__body">
+                <span class="ds-suggest__title">解读一份数据表</span>
+                <span class="ds-suggest__desc">给出关键指标解读</span>
+              </span>
+              <span class="ds-suggest__chevron" aria-hidden="true">
+                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -3258,40 +3473,39 @@ body {
             <span>思考中…</span>
           </div>
 
-          <ol data-component="step-timeline" class="ds-steps pw-hide" id="pw-steps">
-            <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-0">
-              <span class="ds-step__icon">
-                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-circle"></use></svg>
-              </span>
-              <span class="ds-step__main">
-                <span class="ds-step__action">理解需求</span>
-              </span>
-            </li>
-            <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-1">
-              <span class="ds-step__icon">
-                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-circle"></use></svg>
-              </span>
-              <span class="ds-step__main">
-                <span class="ds-step__action">检索资料</span>
-              </span>
-            </li>
-            <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-2">
-              <span class="ds-step__icon">
-                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-circle"></use></svg>
-              </span>
-              <span class="ds-step__main">
-                <span class="ds-step__action">生成文档</span>
-              </span>
-            </li>
-            <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-3">
-              <span class="ds-step__icon">
-                <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-circle"></use></svg>
-              </span>
-              <span class="ds-step__main">
-                <span class="ds-step__action">校验产物</span>
-              </span>
-            </li>
-          </ol>
+          <div data-component="step-timeline" class="ds-steps pw-hide" id="pw-steps">
+            <div class="ds-steps__head">
+              <svg class="ds-icon ds-steps__head-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+              <strong class="ds-steps__title">文档生成进度</strong>
+              <span class="ds-steps__count">0/4</span>
+            </div>
+            <ol class="ds-steps__list">
+              <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-0">
+                <span class="ds-step__icon" aria-hidden="true"></span>
+                <span class="ds-step__main">
+                  <span class="ds-step__action">理解需求</span>
+                </span>
+              </li>
+              <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-1">
+                <span class="ds-step__icon" aria-hidden="true"></span>
+                <span class="ds-step__main">
+                  <span class="ds-step__action">检索资料</span>
+                </span>
+              </li>
+              <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-2">
+                <span class="ds-step__icon" aria-hidden="true"></span>
+                <span class="ds-step__main">
+                  <span class="ds-step__action">生成文档</span>
+                </span>
+              </li>
+              <li class="ds-step ds-step--waiting" data-state="waiting" id="pw-step-3">
+                <span class="ds-step__icon" aria-hidden="true"></span>
+                <span class="ds-step__main">
+                  <span class="ds-step__action">校验产物</span>
+                </span>
+              </li>
+            </ol>
+          </div>
 
           <div data-component="markdown-body" class="ds-md pw-hide" id="pw-md">
 <h3>Q3 路线图已整理完成</h3>
@@ -3338,7 +3552,7 @@ body {
                 <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-md"></use></svg>
                 <span class="ds-artcard__texts">
                   <span class="ds-artcard__name">Q3产品路线图.md</span>
-                  <span class="ds-artcard__status">已同步 · 刚刚更新</span>
+                  <span class="ds-artcard__status">Markdown · 12.4 KB · 今天 14:32</span>
                 </span>
               </button>
             </div>
@@ -3347,7 +3561,7 @@ body {
                 <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-text"></use></svg>
                 <span class="ds-artcard__texts">
                   <span class="ds-artcard__name">Q3产品路线图.docx</span>
-                  <span class="ds-artcard__status">已同步 · 刚刚更新</span>
+                  <span class="ds-artcard__status">Word 文档 · 48.1 KB · 今天 14:33</span>
                 </span>
               </button>
             </div>
@@ -3388,7 +3602,7 @@ body {
       <div class="ds-composer-stage">
         <div class="ds-composer" data-component="composer" id="pw-composer" data-conversation-id="c11">
           <div class="ds-attach-row" hidden></div>
-          <textarea class="ds-composer__textarea" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
+          <textarea class="ds-composer__textarea" rows="3" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
           <div class="ds-composer__bar">
             <button type="button" class="ds-icon-btn ds-composer__plus" aria-label="更多输入能力"
               aria-haspopup="menu" aria-expanded="false" aria-controls="ds-plus-menu">
@@ -3398,11 +3612,15 @@ body {
               data-transcript="帮我把这段讨论整理成行动项。" aria-label="语音输入">
               <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-mic"></use></svg>
             </button>
+            <span class="ds-composer__spacer" aria-hidden="true"></span>
             <button type="button" class="ds-model-switch" data-component="model-switcher"
               aria-haspopup="listbox" aria-expanded="false">
-              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-bot"></use></svg>
               <span class="ds-model-switch__name">通用模型 · 标准</span>
               <svg class="ds-icon ds-model-switch__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+            </button>
+            <button type="button" class="ds-btn ds-btn--primary ds-composer__send" disabled aria-label="发送">
+              <svg class="ds-icon ds-composer__send-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-send"></use></svg>
             </button>
             <script type="application/json" data-model-seed>
             [
@@ -3411,10 +3629,6 @@ body {
               { "name": "通用模型 · 深度推理", "desc": "推理强，适合复杂分析" }
             ]
             </script>
-            <span class="ds-composer__spacer" aria-hidden="true"></span>
-            <button type="button" class="ds-btn ds-btn--primary ds-composer__send" disabled aria-label="发送">
-              <svg class="ds-icon ds-composer__send-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-send"></use></svg>
-            </button>
           </div>
 
           <input type="file" class="ds-composer__file" hidden multiple />
@@ -3928,7 +4142,7 @@ body {
 
 <script>
 /* ===== [复制区] 组件JS：artifact-card ===== */
-/* artifact-card —— 点击整卡派发 artifact:open {id,name,type}，并置已打开弱态（CS-10/CS-12） */
+/* artifact-card —— 点击整卡派发 artifact:open {id,name,type}（CS-10/CS-11）；状态行固定显示元信息，无已打开弱态 */
 (function () {
   'use strict';
 
@@ -3940,15 +4154,6 @@ body {
     image: 'image',
     txt: 'file-text'
   };
-
-  function markOpen(card) {
-    card.setAttribute('data-open', 'true');
-    var status = card.querySelector('.ds-artcard__status');
-    if (status && status.getAttribute('data-default') === null) {
-      status.setAttribute('data-default', status.textContent);
-      status.textContent = '已打开';
-    }
-  }
 
   function init(root) {
     if (root.__dsArtCardInit) return;
@@ -3966,7 +4171,6 @@ body {
       document.dispatchEvent(new CustomEvent('artifact:open', {
         detail: { id: id, name: name, type: type }
       }));
-      markOpen(card);
     });
   }
 
@@ -4633,7 +4837,7 @@ body {
 
   var DRAFT_PREFIX = 'ds.chat-workbench.draft.';
   var MENU_GAP = 8, SUB_GAP = 4, EDGE = 8, HOVER_DELAY = 120;
-  var MAX_LINES = 8;
+  var MIN_LINES = 3, MAX_LINES = 10;
 
   function forRoot(root) {
     if (!root || root.__dsComposerApi) return root && root.__dsComposerApi;
@@ -4651,11 +4855,11 @@ body {
     var composing = false;
     var draftTimer = null;
 
-    /* ---------- autosize（CP-3：1–8 行，超出框内滚动） ---------- */
+    /* ---------- autosize（CP-3：默认 3 行，最多 10 行，超出框内滚动） ---------- */
     var lineH = parseFloat(getComputedStyle(ta).lineHeight);
     var padV = parseFloat(getComputedStyle(ta).paddingTop) +
                parseFloat(getComputedStyle(ta).paddingBottom);
-    var minH = lineH + padV;
+    var minH = lineH * MIN_LINES + padV;
     var maxH = lineH * MAX_LINES + padV;
     function autosize() {
       ta.style.height = 'auto';
@@ -5379,7 +5583,7 @@ body {
 (function (global) {
   'use strict';
 
-  var GROUP_LABELS = { projects: '项目', recent: '最近' };
+  var GROUP_LABELS = { projects: '项目', recent: '对话' };
 
   function emit(name, detail) {
     document.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
@@ -5744,9 +5948,9 @@ body {
       ? iconBtn('data-act="project-create"', 'folder-plus', '新建项目')
       : iconBtn('data-act="conversation-create" data-in-project=""', 'message-plus', '新建会话');
     return '<div class="ds-history__group-head">' +
+      '<span class="ds-history__group-label">' + GROUP_LABELS[group] + '</span>' +
       iconBtn('data-act="toggle-group" data-group="' + group + '" aria-expanded="' + expanded + '"',
         'chevron-down', expanded ? '折叠' + GROUP_LABELS[group] + '分组' : '展开' + GROUP_LABELS[group] + '分组') +
-      '<span class="ds-history__group-label">' + GROUP_LABELS[group] + '</span>' +
       '<span class="ds-history__group-actions">' + create + '</span>' +
       '</div>';
   };
@@ -5773,10 +5977,10 @@ body {
     var rowCls = 'ds-history__row ds-history__row--project' + (isParent ? ' is-parent' : '');
     return '<div class="ds-history__project" data-project-id="' + esc(p.id) + '" data-expanded="' + !!p.expanded + '">' +
       '<div class="' + rowCls + '" data-rename-row>' +
-      iconBtn('data-act="project-toggle" aria-expanded="' + !!p.expanded + '"',
-        'chevron-down', p.expanded ? '折叠项目' : '展开项目') +
       icon(p.expanded ? 'folder-open' : 'folder', 16).replace('class="ds-icon"', 'class="ds-icon ds-history__folder"') +
       '<span class="ds-history__label ds-rename__anchor" data-label>' + esc(p.title) + '</span>' +
+      iconBtn('data-act="project-toggle" aria-expanded="' + !!p.expanded + '"',
+        'chevron-down', p.expanded ? '折叠项目' : '展开项目') +
       this.renderRowActions(null) +
       '</div>' +
       '<div class="ds-history__project-body">' + rows + '</div>' +
@@ -6644,9 +6848,19 @@ body {
 })(window);
 
 /* ===== [复制区] 组件JS：step-timeline ===== */
-/* step-timeline —— running 行点击展开/收起详情（CS-5） */
+/* step-timeline —— 头部计数自动同步 + running 行点击展开/收起详情（CS-5） */
 (function () {
   'use strict';
+
+  function refreshCount(root) {
+    var count = root.querySelector('.ds-steps__count');
+    if (!count) return;
+    var items = root.querySelectorAll('.ds-step');
+    var done = root.querySelectorAll('.ds-step[data-state="done"]').length;
+    var next = done + '/' + items.length;
+    if (count.textContent === next) return;
+    count.textContent = next;
+  }
 
   function init(root) {
     if (root.__dsStepsInit) return;
@@ -6660,6 +6874,17 @@ body {
       li.setAttribute('data-expanded', expanded ? 'false' : 'true');
       toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     });
+    refreshCount(root);
+    /* data-state 由外部脚本驱动（如流式回放）时，计数随 DOM 变化自动重算 */
+    if (typeof MutationObserver === 'function') {
+      var mo = new MutationObserver(function () { refreshCount(root); });
+      mo.observe(root, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['data-state']
+      });
+    }
   }
 
   function autoInit() {
@@ -6675,7 +6900,7 @@ body {
     autoInit();
   }
 
-  window.DSStepTimeline = { init: init };
+  window.DSStepTimeline = { init: init, refresh: refreshCount };
 })();
 
 /* ===== [复制区] 组件JS：thinking-block ===== */
@@ -6913,7 +7138,7 @@ body {
 })();
 
 /* ===== [复制区] 组件JS：welcome-state ===== */
-/* welcome-state —— 推荐开场卡：点击/Enter 派发 conversation:submit {text}（CS-18） */
+/* welcome-state —— 推荐开场卡：点击把标题填入输入框但不发送（CS-18 修订） */
 (function () {
   'use strict';
 
@@ -6925,9 +7150,14 @@ body {
       if (!card || !root.contains(card)) return;
       var titleEl = card.querySelector('.ds-suggest__title');
       var text = (titleEl ? titleEl.textContent : card.textContent).trim();
-      document.dispatchEvent(new CustomEvent('conversation:submit', {
-        detail: { text: text }
+      document.dispatchEvent(new CustomEvent('composer:prefill', {
+        detail: { text: text, autosubmit: false }
       }));
+      var ta = document.querySelector('.ds-composer__textarea');
+      if (ta) {
+        ta.focus();
+        try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (err) { /* 非文本输入框忽略 */ }
+      }
     });
   }
 
@@ -7360,9 +7590,8 @@ body {
 
     /* ---------- 步骤时间线 ---------- */
     function stepHtml(def, state) {
-      var iconName = state === 'done' ? 'check-circle' : 'circle';
-      var iconExtra = state === 'running' ? 'ds-step__spinner' : '';
-      var main;
+      var iconInner = state === 'done' ? icon('check', 12) : '';
+      var main, status = '';
       if (state === 'running') {
         var r = def.running || {};
         main =
@@ -7370,21 +7599,21 @@ body {
             '<span class="ds-step__action">' + def.action + '</span>' +
             (r.tool ? '<span class="ds-step__tool">' + r.tool + '</span>' : '') +
           '</button>' +
-          (r.dur ? '<span class="ds-step__dur">' + r.dur + '</span>' : '') +
           (r.detail ? '<div class="ds-step__detail">' + r.detail + '</div>' : '');
+        status = '<span class="ds-step__dur">进行中</span>';
       } else {
         var meta = state === 'done' ? (def.done || {}) : {};
         main =
           '<span class="ds-step__action">' + def.action + '</span>' +
-          (meta.tool ? '<span class="ds-step__tool">' + meta.tool + '</span>' : '') +
-          (meta.dur ? '<span class="ds-step__dur">' + meta.dur + '</span>' : '');
+          (meta.tool ? '<span class="ds-step__tool">' + meta.tool + '</span>' : '');
+        status = meta.dur ? '<span class="ds-step__dur">' + meta.dur + '</span>' : '';
       }
-      return '<span class="ds-step__icon">' + icon(iconName, 16, iconExtra) + '</span>' +
-        '<span class="ds-step__main">' + main + '</span>';
+      return '<span class="ds-step__icon" aria-hidden="true">' + iconInner + '</span>' +
+        '<span class="ds-step__main">' + main + '</span>' + status;
     }
 
     function setStep(i, state) {
-      var li = steps.children[i];
+      var li = steps.querySelectorAll('.ds-step')[i];
       if (!li) return;
       li.className = 'ds-step ds-step--' + state;
       li.setAttribute('data-state', state);
@@ -7544,7 +7773,7 @@ body {
       }
       var live = steps.querySelector('.ds-step--running');
       if (live) {
-        var idx = Array.prototype.indexOf.call(steps.children, live);
+        var idx = Array.prototype.indexOf.call(steps.querySelectorAll('.ds-step'), live);
         if (idx >= 0) setStep(idx, 'waiting');
       }
       composerApi.setGenerating(false);

@@ -11,16 +11,16 @@
 ┌ composer（--ds-radius-input 外框，surface-raised + border） ───────────┐
 │ attachment-row：[× __ATTACHMENT_N_NAME__ chip]…（有附件时才占位）       │
 │ textarea（自适应高度，placeholder=__COMPOSER_PLACEHOLDER__）            │
-│ toolbar：[回形针 attachment][@ mention][麦克风 voice]  [模型切换▾]  [发送/停止] │
+│ toolbar：[加号 attachment/@][麦克风 voice] … [模型切换▾][发送/停止]（模型钮靠右贴发送）        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **CP-1** 外框：`--ds-surface-raised` 底、1px `--ds-border`、`--ds-radius-input`，**常驻显示**；**focus-within 时边框颜色不变、不叠加 focus ring/外圈阴影**（M2 验收决策：输入框已有完整 1px 外框，聚焦后边框转深并再套一圈 2px ring 会在四周形成突兀的第二层框线；聚焦状态由 textarea 内的文本光标自身表达）。textarea 自身在任何状态（含 `:focus`/`:focus-visible`）始终 `border:none; outline:none; box-shadow:none`——注意 tokens.css 的全局 `:focus-visible` 环会命中所有文本输入框，组件必须用 `.xxx__textarea:focus-visible { box-shadow:none }`（(0,2,0) 压过全局 (0,1,0)）显式豁免，禁止依赖"全局环刚好不生效"。外框与 textarea 均不因聚焦改样式。本条仅豁免 composer 外框；按钮/菜单项/页签等其他可交互元素仍按视觉基线第 2 条提供深色焦点可见样式，不得据此全局删除 focus ring。
+- **CP-1** 外框：`--ds-surface-raised` 底、1px `--ds-border`、`--ds-radius-input`，**常驻显示**；**hover 时边框转 `--ds-text-quaternary`；focus-within（选中态）时边框转 `--ds-text-primary` 并叠加 `box-shadow: 0 0 0 1px var(--ds-text-primary)`（1px 同色外圈，形成深色选中描边，对齐参考稿 `.composer:focus-within`），过渡只动 `border-color`/`box-shadow`**。textarea 自身在任何状态（含 `:focus`/`:focus-visible`）始终 `border:none; outline:none; box-shadow:none`——注意 tokens.css 的全局 `:focus-visible` 环会命中所有文本输入框，组件必须用 `.xxx__textarea:focus-visible { box-shadow:none }`（(0,2,0) 压过全局 (0,1,0)）显式豁免，禁止依赖"全局环刚好不生效"。本条仅豁免 composer 外框的 textarea ring（外框自身允许 1px 同色外圈）；按钮/菜单项/页签等其他可交互元素仍按视觉基线第 2 条提供深色焦点可见样式，不得据此全局删除 focus ring。
 - **CP-2** 整体最大宽同 CS-1（760px）居中，与消息流左右缘对齐；外边距 `--ds-space-4` 两侧、`--ds-space-3` 底。
 
 ## 2. 输入与发送规则
 
-- **CP-3 自适应高度**：textarea 单行起步（min 44px 命中），随输入增高，到 8 行（约 200px）封顶后内部滚动；会话切换/发送成功后清空回单行。
+- **CP-3 自适应高度**：textarea 默认 3 行（80px = 3×24 行高 + 上下 padding 8），随输入逐行增高，到 **10 行（约 248px）** 封顶后内部滚动；会话切换/发送成功后清空回 3 行。
 - **CP-4 Enter 规则**：Enter = 发送；Shift+Enter = 插入换行；输入法 composition 期间 Enter 只确认组词不发送（`isComposing` 判断）；占位文案必须写明规则（`__COMPOSER_PLACEHOLDER__`）。
 - **CP-5 发送条件**：文本去空白非空 **或** 存在附件时可发送；空内容发送按钮禁用（灰）。
 - **CP-6** 发送派发 `conversation:submit {text, attachments}`，附件行与输入同步清空；失败时不清空并恢复可编辑（允许重新生成走 CS-15）。
@@ -36,7 +36,7 @@
 | 主按钮 | send 图标（内容为空时禁用） | **stop 图标，可用**（派发 `generation:stop`，见 CS-10） |
 | Enter 发送 | 按 CP-4 | 不发送（停止只能点按钮，避免误触） |
 
-- **CP-8** 主按钮是同一按钮两态：idle 黑底白字 send（18px 图标），generating 黑底白字 stop；切换无布局位移（两图标同尺寸）。危险/中断不用红色，stop 是中性深色。
+- **CP-8** 主按钮是同一按钮两态：idle 黑底白字 send（18px 图标），generating 黑底白字 stop；**按钮本体 32×32 正方形（与工具行同高，padding 0）**，切换无布局位移（两图标同尺寸）。危险/中断不用红色，stop 是中性深色。
 - **CP-9 草稿**：按会话记忆未发送文本，键 `ds.chat-workbench.draft.{conversationId}`，输入去抖 300ms 落盘；切会话恢复对应草稿，发送成功删除；空白态欢迎卡发起的新会话使用同一机制（临时 id）。
 
 ## 4. 附件（attachment-chip）
@@ -54,7 +54,7 @@
 
 ## 6. 模型切换（model-switcher）
 
-- **CP-17** 工具行中部弹层：触发器显示 bot 图标 + `__MODEL_NAME__` + chevron-down；浮层项 = 名称 + `__MODEL_N_DESC__`，当前项尾 check；单选，点击即切换并关闭回焦。
+- **CP-17** 工具行右侧（spacer 之后、发送钮之前）弹层：触发器显示 bot 图标 + `__MODEL_NAME__` + chevron-down；浮层项 = 名称 + `__MODEL_N_DESC__`，当前项尾 check；单选，点击即切换并关闭回焦。
 - **CP-18** 选中模型记忆键 `ds.chat-workbench.model`（存名称字符串）；不得写死任何真实品牌型号；默认值用槽位示例语义"通用模型 · 标准"。
 - **CP-19** 键盘规则同 popover-menu（↑↓/Home/End/Enter/Esc/外部点击）。
 

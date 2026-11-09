@@ -13,15 +13,17 @@
 <script type="application/json" data-component-spec>
 {
   "id": "step-timeline",
-  "title": "任务步骤时间线（done / running / waiting）",
+  "title": "任务步骤时间线（卡片容器 + 头部计数 + done/running/waiting 圆点）",
   "region": "stream",
   "anatomy": [
-    "root:ol.ds-steps[data-component=step-timeline]",
-    "item:li.ds-step[data-state=done|running|waiting][data-expanded]",
-    "icon:span.ds-step__icon（done=check-circle / running=circle 旋转 / waiting=空心 circle）",
+    "root:div.ds-steps[data-component=step-timeline]（1px border、radius-panel、padding space-4、max-width 520 卡片）",
+    "head:div.ds-steps__head（sparkles 16 + strong.ds-steps__title（__STEP_GROUP_TITLE__） + span.ds-steps__count 自动 done/total）",
+    "list:ol.ds-steps__list",
+    "item:li.ds-step[data-state=done|running|waiting][data-expanded]（36px 行高，非末行 ::after 画 1px 纵向连接线）",
+    "icon:span.ds-step__icon（21×21 圆点：done=深色实心+白 check 12 / running=5px 18% 光晕+实心深点+脉冲 / waiting=空心圆）",
     "action:span.ds-step__action（__STEP_N_ACTION__）",
     "tool:span.ds-step__tool（__STEP_N_TOOL__，无工具不渲染）",
-    "duration:span.ds-step__dur（__STEP_N_DURATION__，tabular-nums）",
+    "status:span.ds-step__dur（右侧小字：done=__STEP_N_DURATION__ tabular-nums，running=「进行中」）",
     "detail:div.ds-step__detail（__STEP_N_DETAIL__，running 可展开）"
   ],
   "variants": [
@@ -37,24 +39,32 @@
     "--ds-space-1",
     "--ds-space-2",
     "--ds-space-3",
+    "--ds-space-4",
     "--ds-fs-caption",
     "--ds-lh-caption",
     "--ds-fs-compact",
     "--ds-lh-compact",
+    "--ds-weight-medium",
     "--ds-text-primary",
+    "--ds-on-primary",
     "--ds-text-secondary",
     "--ds-text-tertiary",
-    "--ds-text-quaternary",
+    "--ds-border",
+    "--ds-divider",
+    "--ds-surface",
+    "--ds-radius-panel",
     "--ds-font-mono",
-    "--ds-t-spin"
+    "--ds-t-spin",
+    "--ds-ease-standard"
   ],
   "slots": [
+    "__STEP_GROUP_TITLE__",
     "__STEP_N_ACTION__",
     "__STEP_N_TOOL__",
     "__STEP_N_DURATION__",
     "__STEP_N_DETAIL__"
   ],
-  "interaction": "running 行为可展开行（button.ds-step__toggle，aria-expanded），点击/Enter/Space 展开 __STEP_N_DETAIL__；done/waiting 不可点。running 图标 1s 线性无限旋转（@keyframes ds-spin 定义在本组件），prefers-reduced-motion 时静止。全程黑白灰，无彩色状态图标。",
+  "interaction": "running 行为可展开行（button.ds-step__toggle，aria-expanded），点击/Enter/Space 展开 __STEP_N_DETAIL__；done/waiting 不可点。头部计数由 JS 按 data-state=done 自动算出 done/total，并用 MutationObserver 跟随外部状态变更。running 圆点 1s 脉冲（@keyframes ds-step-pulse 定义在本组件），prefers-reduced-motion 时静止。全程黑白灰，无彩色状态图标。",
   "contract_refs": [
     "CS-5",
     "CS-X4"
@@ -63,7 +73,8 @@
     "彩色成功/失败/进行中图",
     "无工具仍显示工具名",
     "waiting 行可点击",
-    "duration 非等宽数字"
+    "duration 非等宽数字",
+    "手写计数而不自动统计"
   ]
 }
 </script>
@@ -301,56 +312,121 @@ progress {
 
 
 /* ===== [复制区] 组件 CSS 开始：step-timeline ===== */
-/* step-timeline —— done/running/waiting 三态清单（CS-5，CS-X4 全程黑白灰） */
+/* step-timeline —— 卡片式任务进度：头部计数 + 圆点连接时间线（CS-5，CS-X4 全程黑白灰） */
 .ds-steps {
   display: flex;
   flex-direction: column;
+  gap: var(--ds-space-3);
+  max-width: 520px;
+  padding: var(--ds-space-4);
+  box-sizing: border-box;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-panel);
+  background: var(--ds-surface);
+}
+
+/* ---------- 头部：图标 + 标题 + 自动计数 ---------- */
+.ds-steps__head {
+  display: flex;
+  align-items: center;
   gap: var(--ds-space-2);
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-primary);
+}
+
+.ds-steps__head-icon {
+  flex: none;
+  color: var(--ds-text-secondary);
+}
+
+.ds-steps__title {
+  font-weight: var(--ds-weight-medium);
+}
+
+.ds-steps__count {
+  margin-left: auto;
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 步骤列表：36px 行高 + 1px 连接线 ---------- */
+.ds-steps__list {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .ds-step {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: var(--ds-space-2);
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-height: 36px;
 }
 
+/* 圆点之间的纵向连接线（最后一行不画） */
+.ds-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 27px;
+  width: 1px;
+  height: 18px;
+  background: var(--ds-divider);
+}
+
+/* ---------- 圆点（21×21，z-index 压住连接线） ---------- */
 .ds-step__icon {
   flex: none;
   display: flex;
   align-items: center;
-  width: 20px;
-  height: var(--ds-lh-compact);
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--ds-surface);
+  position: relative;
+  z-index: 1;
 }
 
+/* done：深色实心 + 白对勾（黑白灰合同下的“完成”语义） */
 .ds-step--done .ds-step__icon {
-  color: var(--ds-text-secondary);
+  border: 1px solid var(--ds-text-primary);
+  background: var(--ds-text-primary);
+  color: var(--ds-on-primary);
 }
 
+/* running：5px 半透明光晕 + 实心深点 + 外圈描边，脉冲提示进行中 */
 .ds-step--running .ds-step__icon {
-  color: var(--ds-text-secondary);
+  border: 5px solid color-mix(in srgb, var(--ds-text-primary) 18%, transparent);
+  background: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+  animation: ds-step-pulse var(--ds-t-spin) var(--ds-ease-standard) infinite;
 }
 
+@keyframes ds-step-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--ds-text-primary); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-text-primary) 35%, transparent); }
+}
+
+/* waiting：空心圆 */
 .ds-step--waiting .ds-step__icon {
-  color: var(--ds-text-quaternary);
+  border: 1px solid var(--ds-border);
 }
 
-.ds-step__spinner {
-  display: block;
-  animation: ds-spin var(--ds-t-spin) linear infinite;
-}
-
-@keyframes ds-spin {
-  to { transform: rotate(360deg); }
-}
-
+/* ---------- 文本区 ---------- */
 .ds-step__main {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
 }
 
 .ds-step__toggle {
@@ -371,7 +447,7 @@ progress {
 }
 
 .ds-step--done .ds-step__action { color: var(--ds-text-secondary); }
-.ds-step--running .ds-step__action { color: var(--ds-text-primary); }
+.ds-step--running .ds-step__action { color: var(--ds-text-primary); font-weight: var(--ds-weight-medium); }
 .ds-step--waiting .ds-step__action { color: var(--ds-text-tertiary); }
 
 .ds-step__tool {
@@ -381,6 +457,7 @@ progress {
   color: var(--ds-text-tertiary);
 }
 
+/* 右侧状态小字：done=耗时（槽位），running=「进行中」 */
 .ds-step__dur {
   flex: none;
   margin-left: auto;
@@ -388,6 +465,10 @@ progress {
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
   font-variant-numeric: tabular-nums;
+}
+
+.ds-step--running .ds-step__dur {
+  color: var(--ds-text-primary);
 }
 
 .ds-step__detail {
@@ -404,9 +485,8 @@ progress {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ds-step__spinner {
+  .ds-step--running .ds-step__icon {
     animation: none;
-    opacity: 0.7;
   }
 }
 /* ===== [复制区] 组件 CSS 结束：step-timeline ===== */
@@ -519,57 +599,60 @@ progress {
 
 <div class="demo-topbar">
   <span class="demo-topbar__title">chat-workbench / step-timeline</span>
-  <span class="demo-topbar__tag">任务步骤时间线（done / running / waiting）</span>
+  <span class="demo-topbar__tag">任务步骤时间线（卡片容器 + 头部计数 + done/running/waiting 圆点）</span>
   <span class="demo-topbar__spacer"></span>
   <button class="ds-btn ds-btn--ghost" id="demo-theme" type="button">切换浅/深主题</button>
 </div>
 <main class="demo-main">
 <!-- ===== [复制区] 组件 HTML 开始：step-timeline ===== -->
 <div class="demo-section">
-  <h3>步骤时间线（done 对勾 / running 旋转可展开 / waiting 空心圆；点 running 行看详情）</h3>
+  <h3>步骤时间线（卡片容器 + 头部计数 + 连接圆点时间线；点 running 行看详情）</h3>
   <div class="demo-canvas" style="width:760px">
-    <ol data-component="step-timeline" class="ds-steps">
-      <li class="ds-step ds-step--done" data-state="done">
-        <span class="ds-step__icon">
-          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-check-circle"></use></svg>
-        </span>
-        <span class="ds-step__main">
-          <span class="ds-step__action">__STEP_1_ACTION__</span>
-          <span class="ds-step__tool">__STEP_1_TOOL__</span>
+    <div data-component="step-timeline" class="ds-steps">
+      <div class="ds-steps__head">
+        <svg class="ds-icon ds-steps__head-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+        <strong class="ds-steps__title">__STEP_GROUP_TITLE__</strong>
+        <span class="ds-steps__count">2/4</span>
+      </div>
+      <ol class="ds-steps__list">
+        <li class="ds-step ds-step--done" data-state="done">
+          <span class="ds-step__icon">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><use href="#i-check"></use></svg>
+          </span>
+          <span class="ds-step__main">
+            <span class="ds-step__action">__STEP_1_ACTION__</span>
+            <span class="ds-step__tool">__STEP_1_TOOL__</span>
+          </span>
           <span class="ds-step__dur">__STEP_1_DURATION__</span>
-        </span>
-      </li>
-      <li class="ds-step ds-step--done" data-state="done">
-        <span class="ds-step__icon">
-          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-check-circle"></use></svg>
-        </span>
-        <span class="ds-step__main">
-          <span class="ds-step__action">__STEP_2_ACTION__</span>
+        </li>
+        <li class="ds-step ds-step--done" data-state="done">
+          <span class="ds-step__icon">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><use href="#i-check"></use></svg>
+          </span>
+          <span class="ds-step__main">
+            <span class="ds-step__action">__STEP_2_ACTION__</span>
+          </span>
           <span class="ds-step__dur">__STEP_2_DURATION__</span>
-        </span>
-      </li>
-      <li class="ds-step ds-step--running" data-state="running" data-expanded="false">
-        <span class="ds-step__icon">
-          <svg class="ds-icon ds-step__spinner" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-circle"></use></svg>
-        </span>
-        <span class="ds-step__main">
-          <button type="button" class="ds-step__toggle" aria-expanded="false">
-            <span class="ds-step__action">__STEP_3_ACTION__</span>
-            <span class="ds-step__tool">__STEP_3_TOOL__</span>
-          </button>
-          <span class="ds-step__dur">__STEP_3_DURATION__</span>
-          <div class="ds-step__detail">__STEP_3_DETAIL__</div>
-        </span>
-      </li>
-      <li class="ds-step ds-step--waiting" data-state="waiting">
-        <span class="ds-step__icon">
-          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-circle"></use></svg>
-        </span>
-        <span class="ds-step__main">
-          <span class="ds-step__action">__STEP_4_ACTION__</span>
-        </span>
-      </li>
-    </ol>
+        </li>
+        <li class="ds-step ds-step--running" data-state="running" data-expanded="false">
+          <span class="ds-step__icon" aria-hidden="true"></span>
+          <span class="ds-step__main">
+            <button type="button" class="ds-step__toggle" aria-expanded="false">
+              <span class="ds-step__action">__STEP_3_ACTION__</span>
+              <span class="ds-step__tool">__STEP_3_TOOL__</span>
+            </button>
+            <div class="ds-step__detail">__STEP_3_DETAIL__</div>
+          </span>
+          <span class="ds-step__dur">进行中</span>
+        </li>
+        <li class="ds-step ds-step--waiting" data-state="waiting">
+          <span class="ds-step__icon" aria-hidden="true"></span>
+          <span class="ds-step__main">
+            <span class="ds-step__action">__STEP_4_ACTION__</span>
+          </span>
+        </li>
+      </ol>
+    </div>
   </div>
 </div>
 <!-- ===== [复制区] 组件 HTML 结束：step-timeline ===== -->
@@ -578,9 +661,19 @@ progress {
 
 
 /* ===== [复制区] 组件 JS 开始：step-timeline ===== */
-/* step-timeline —— running 行点击展开/收起详情（CS-5） */
+/* step-timeline —— 头部计数自动同步 + running 行点击展开/收起详情（CS-5） */
 (function () {
   'use strict';
+
+  function refreshCount(root) {
+    var count = root.querySelector('.ds-steps__count');
+    if (!count) return;
+    var items = root.querySelectorAll('.ds-step');
+    var done = root.querySelectorAll('.ds-step[data-state="done"]').length;
+    var next = done + '/' + items.length;
+    if (count.textContent === next) return;
+    count.textContent = next;
+  }
 
   function init(root) {
     if (root.__dsStepsInit) return;
@@ -594,6 +687,17 @@ progress {
       li.setAttribute('data-expanded', expanded ? 'false' : 'true');
       toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     });
+    refreshCount(root);
+    /* data-state 由外部脚本驱动（如流式回放）时，计数随 DOM 变化自动重算 */
+    if (typeof MutationObserver === 'function') {
+      var mo = new MutationObserver(function () { refreshCount(root); });
+      mo.observe(root, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['data-state']
+      });
+    }
   }
 
   function autoInit() {
@@ -609,7 +713,7 @@ progress {
     autoInit();
   }
 
-  window.DSStepTimeline = { init: init };
+  window.DSStepTimeline = { init: init, refresh: refreshCount };
 })();
 /* ===== [复制区] 组件 JS 结束：step-timeline ===== */
 </script>

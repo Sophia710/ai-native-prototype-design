@@ -13,44 +13,57 @@
 <script type="application/json" data-component-spec>
 {
   "id": "welcome-state",
-  "title": "空白会话欢迎态（问候语 + 4 推荐开场卡）",
+  "title": "空白会话欢迎态（问候语 + 副标题 + 快捷任务 2×2）",
   "region": "stream",
   "anatomy": [
     "root:div.ds-welcome[data-component=welcome-state]",
-    "greeting:h2.ds-welcome__greeting（__GREETING__，32px）",
+    "hero:div.ds-welcome__hero（h2.ds-welcome__greeting（__GREETING__，32px） + p.ds-welcome__subtitle）",
+    "head:div.ds-welcome__suggest-head（快捷任务 标题 + 补充说明）",
     "grid:div.ds-suggest（2×2）",
-    "card:button.ds-suggest__card（__SUGGESTED_PROMPT_N_TITLE__ + __SUGGESTED_PROMPT_N_DESC__）"
+    "card:button.ds-suggest__card（36px 图标块 + 标题/描述 + 右 chevron）"
   ],
   "variants": [
     "默认 4 卡"
   ],
   "states": [
-    "card-hover",
-    "card-focus-visible"
+    "card-hover(边框转 text-secondary + 底色 + 箭头转深)",
+    "card-focus-visible(深色边框 + 1px 同色外圈)",
+    "card-active(底色 surface-strong)"
   ],
   "tokens": [
     "--ds-space-1",
+    "--ds-space-2",
+    "--ds-space-3",
     "--ds-space-4",
     "--ds-space-6",
     "--ds-space-7",
     "--ds-fs-caption",
     "--ds-fs-compact",
+    "--ds-fs-body",
     "--ds-fs-display",
+    "--ds-lh-caption",
+    "--ds-lh-compact",
+    "--ds-lh-body",
+    "--ds-lh-display",
     "--ds-weight-medium",
     "--ds-text-primary",
     "--ds-text-secondary",
+    "--ds-text-tertiary",
     "--ds-border",
     "--ds-surface",
     "--ds-surface-muted",
+    "--ds-surface-strong",
     "--ds-radius-panel",
-    "--ds-t-fast"
+    "--ds-radius-button",
+    "--ds-t-fast",
+    "--ds-ease-standard"
   ],
   "slots": [
     "__GREETING__",
     "__SUGGESTED_PROMPT_N_TITLE__",
     "__SUGGESTED_PROMPT_N_DESC__"
   ],
-  "interaction": "卡片为 button，可 Tab 聚焦；点击或 Enter/Space（原生 button）派发 document 事件 conversation:submit {text: 卡片标题}，由对话流/输入区直接发送（CS-18）。",
+  "interaction": "卡片为 button，可 Tab 聚焦；点击或 Enter/Space 将卡片标题派发 composer:prefill {text, autosubmit:false} 填入输入框（不发送），随后聚焦 textarea 并把光标置于末尾（CS-18）。",
   "contract_refs": [
     "CS-1",
     "CS-18",
@@ -58,8 +71,9 @@
   ],
   "forbidden": [
     "卡片用 div 冒充按钮",
-    "Enter 不触发发送",
-    "欢迎语写死特定品牌口吻"
+    "点击直接发送而不填输入框",
+    "欢迎语写死特定品牌口吻",
+    "欢迎区出现 hero 图标块或底部隐私提示"
   ]
 }
 </script>
@@ -297,17 +311,25 @@ progress {
 
 
 /* ===== [复制区] 组件 CSS 开始：welcome-state ===== */
-/* welcome-state —— 空白会话欢迎态：32 问候语 + 2×2 推荐开场卡 */
+/* welcome-state —— 空白会话欢迎态：问候语 + 副标题 + Quick tasks 2×2 */
 .ds-welcome {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--ds-space-7);
+  gap: var(--ds-space-6);
   width: 100%;
   max-width: 760px;
   margin: 0 auto;
   padding: var(--ds-space-7) var(--ds-space-4);
   box-sizing: border-box;
+}
+
+.ds-welcome__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ds-space-3);
+  width: 100%;
 }
 
 .ds-welcome__greeting {
@@ -320,20 +342,55 @@ progress {
   color: var(--ds-text-primary);
 }
 
+.ds-welcome__subtitle {
+  margin: 0;
+  text-align: center;
+  font-size: var(--ds-fs-compact);
+  line-height: var(--ds-lh-compact);
+  color: var(--ds-text-secondary);
+}
+
+/* 快捷任务区块：与输入框同宽 */
+.ds-welcome__suggest-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  width: 100%;
+}
+
+.ds-welcome__suggest-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-2);
+}
+
+.ds-suggest__heading {
+  font-size: var(--ds-fs-body);
+  line-height: var(--ds-lh-body);
+  font-weight: var(--ds-weight-medium);
+  color: var(--ds-text-primary);
+}
+
+.ds-suggest__hint {
+  font-size: var(--ds-fs-caption);
+  line-height: var(--ds-lh-caption);
+  color: var(--ds-text-tertiary);
+}
+
 .ds-suggest {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--ds-space-4);
+  gap: var(--ds-space-3);
   width: 100%;
-  max-width: 640px;
 }
 
 .ds-suggest__card {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--ds-space-1);
-  padding: var(--ds-space-4);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-height: 80px;
+  padding: var(--ds-space-3) var(--ds-space-4);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-panel);
   background: var(--ds-surface);
@@ -341,11 +398,47 @@ progress {
   text-align: left;
   cursor: pointer;
   transition: background-color var(--ds-t-fast) var(--ds-ease-standard),
-    border-color var(--ds-t-fast) var(--ds-ease-standard);
+    border-color var(--ds-t-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-t-fast) var(--ds-ease-standard);
 }
 
+/* hover：边框转 secondary + 底色浅灰（对齐参考稿 .quick-card:hover） */
 .ds-suggest__card:hover {
+  border-color: var(--ds-text-secondary);
   background: var(--ds-surface-muted);
+}
+
+/* 选中（键盘聚焦与点击按下）：深色边框 + 1px 同色外圈，与输入框聚焦一致 */
+.ds-suggest__card:focus-visible {
+  outline: none;
+  border-color: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+}
+
+.ds-suggest__card:active {
+  background: var(--ds-surface-strong);
+}
+
+.ds-suggest__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  border-radius: var(--ds-radius-button);
+  background: var(--ds-surface-strong);
+  color: var(--ds-text-primary);
+  transition: color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-suggest__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .ds-suggest__title {
@@ -359,6 +452,20 @@ progress {
   font-size: var(--ds-fs-caption);
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-suggest__chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--ds-text-tertiary);
+  transition: color var(--ds-t-fast) var(--ds-ease-standard);
+}
+
+.ds-suggest__card:hover .ds-suggest__chevron {
+  color: var(--ds-text-primary);
 }
 /* ===== [复制区] 组件 CSS 结束：welcome-state ===== */
 
@@ -470,35 +577,72 @@ progress {
 
 <div class="demo-topbar">
   <span class="demo-topbar__title">chat-workbench / welcome-state</span>
-  <span class="demo-topbar__tag">空白会话欢迎态（问候语 + 4 推荐开场卡）</span>
+  <span class="demo-topbar__tag">空白会话欢迎态（问候语 + 副标题 + 快捷任务 2×2）</span>
   <span class="demo-topbar__spacer"></span>
   <button class="ds-btn ds-btn--ghost" id="demo-theme" type="button">切换浅/深主题</button>
 </div>
 <main class="demo-main">
 <!-- ===== [复制区] 组件 HTML 开始：welcome-state ===== -->
-<div class="demo-section">
-  <h3>空白会话欢迎态（中栏 760 可读宽；卡片可 Tab 聚焦，Enter 直接发送）</h3>
-  <div class="demo-canvas" style="width:760px">
-    <div data-component="welcome-state" class="ds-welcome">
-      <h2 class="ds-welcome__greeting">__GREETING__</h2>
-      <div class="ds-suggest" role="group" aria-label="推荐开场">
-        <button type="button" class="ds-suggest__card">
+<div data-component="welcome-state" class="ds-welcome">
+  <div class="ds-welcome__hero">
+    <h2 class="ds-welcome__greeting">__GREETING__</h2>
+    <p class="ds-welcome__subtitle">从想法到成果，让 AI 帮你高效完成</p>
+  </div>
+
+  <div class="ds-welcome__suggest-block">
+    <div class="ds-welcome__suggest-head">
+      <span class="ds-suggest__heading">快捷任务</span>
+      <span class="ds-suggest__hint">选择一个模板快速开始</span>
+    </div>
+    <div class="ds-suggest" role="group" aria-label="推荐开场">
+      <button type="button" class="ds-suggest__card">
+        <span class="ds-suggest__icon" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-text"></use></svg>
+        </span>
+        <span class="ds-suggest__body">
           <span class="ds-suggest__title">__SUGGESTED_PROMPT_1_TITLE__</span>
           <span class="ds-suggest__desc">__SUGGESTED_PROMPT_1_DESC__</span>
-        </button>
-        <button type="button" class="ds-suggest__card">
+        </span>
+        <span class="ds-suggest__chevron" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+        </span>
+      </button>
+      <button type="button" class="ds-suggest__card">
+        <span class="ds-suggest__icon" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+        </span>
+        <span class="ds-suggest__body">
           <span class="ds-suggest__title">__SUGGESTED_PROMPT_2_TITLE__</span>
           <span class="ds-suggest__desc">__SUGGESTED_PROMPT_2_DESC__</span>
-        </button>
-        <button type="button" class="ds-suggest__card">
+        </span>
+        <span class="ds-suggest__chevron" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+        </span>
+      </button>
+      <button type="button" class="ds-suggest__card">
+        <span class="ds-suggest__icon" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-clock"></use></svg>
+        </span>
+        <span class="ds-suggest__body">
           <span class="ds-suggest__title">__SUGGESTED_PROMPT_3_TITLE__</span>
           <span class="ds-suggest__desc">__SUGGESTED_PROMPT_3_DESC__</span>
-        </button>
-        <button type="button" class="ds-suggest__card">
+        </span>
+        <span class="ds-suggest__chevron" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+        </span>
+      </button>
+      <button type="button" class="ds-suggest__card">
+        <span class="ds-suggest__icon" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-pencil"></use></svg>
+        </span>
+        <span class="ds-suggest__body">
           <span class="ds-suggest__title">__SUGGESTED_PROMPT_4_TITLE__</span>
           <span class="ds-suggest__desc">__SUGGESTED_PROMPT_4_DESC__</span>
-        </button>
-      </div>
+        </span>
+        <span class="ds-suggest__chevron" aria-hidden="true">
+          <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+        </span>
+      </button>
     </div>
   </div>
 </div>
@@ -508,7 +652,7 @@ progress {
 
 
 /* ===== [复制区] 组件 JS 开始：welcome-state ===== */
-/* welcome-state —— 推荐开场卡：点击/Enter 派发 conversation:submit {text}（CS-18） */
+/* welcome-state —— 推荐开场卡：点击把标题填入输入框但不发送（CS-18 修订） */
 (function () {
   'use strict';
 
@@ -520,9 +664,14 @@ progress {
       if (!card || !root.contains(card)) return;
       var titleEl = card.querySelector('.ds-suggest__title');
       var text = (titleEl ? titleEl.textContent : card.textContent).trim();
-      document.dispatchEvent(new CustomEvent('conversation:submit', {
-        detail: { text: text }
+      document.dispatchEvent(new CustomEvent('composer:prefill', {
+        detail: { text: text, autosubmit: false }
       }));
+      var ta = document.querySelector('.ds-composer__textarea');
+      if (ta) {
+        ta.focus();
+        try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (err) { /* 非文本输入框忽略 */ }
+      }
     });
   }
 

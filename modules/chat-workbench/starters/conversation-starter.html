@@ -634,7 +634,7 @@ body { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: var(--ds-space-2);
-  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-1);
+  padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-2);
   font-size: var(--ds-fs-compact);
   font-weight: var(--ds-weight-medium);
   color: var(--ds-text-primary);
@@ -643,19 +643,18 @@ body { overflow: hidden; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--ds-radius-chip);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ds-radius-button);
   background: var(--ds-text-primary);
   color: var(--ds-on-primary);
   flex: none;
 }
-.t-new { padding: var(--ds-space-1) var(--ds-space-3) var(--ds-space-3); }
-.t-new__btn { background: var(--ds-surface-strong); border-color: transparent; color: var(--ds-text-primary); }
-.t-new__btn:hover { background: var(--ds-active-fill); border-color: transparent; }
+.t-new { padding: var(--ds-space-3) var(--ds-space-3); }
+.t-new .ds-btn { height: 36px; }
 .t-left-stack { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
-.t-tools { padding: 0 var(--ds-space-2) var(--ds-space-3); }
+.t-tools { padding: 0 var(--ds-space-2) var(--ds-space-3); display: flex; flex-direction: column; gap: var(--ds-space-1); }
 .t-tools__title, .t-history__title {
   padding: var(--ds-space-2) var(--ds-space-2) var(--ds-space-1);
   font-size: var(--ds-fs-caption);
@@ -666,10 +665,10 @@ body { overflow: hidden; }
   display: flex;
   width: 100%;
   align-items: center;
-  gap: var(--ds-space-2);
+  gap: var(--ds-space-3);
   box-sizing: border-box;
-  height: 32px;
-  padding: 0 var(--ds-space-2);
+  height: 40px;
+  padding: 0 var(--ds-space-3);
   border: none;
   border-radius: var(--ds-radius-button);
   background: transparent;
@@ -697,12 +696,13 @@ body { overflow: hidden; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--ds-radius-full);
-  background: var(--ds-text-primary);
-  color: var(--ds-on-primary);
+  background: var(--ds-surface-strong);
+  color: var(--ds-text-primary);
   font-size: var(--ds-fs-caption);
+  font-weight: var(--ds-weight-medium);
   flex: none;
 }
 
@@ -914,8 +914,18 @@ body { overflow: hidden; }
   background: var(--ds-surface-raised);
   padding: var(--ds-space-2) var(--ds-space-3);
   container-type: inline-size; /* CP-24：为极端窄宽的模型钮收起提供容器查询基准 */
+  transition: border-color var(--ds-t-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-t-fast) var(--ds-ease-standard);
 }
-/* 聚焦态不额外画框（CP-1）：外框常驻，focus-within 边框不变深、无 focus ring */
+/* CP-1：hover 边框转 text-quaternary；聚焦（选中态）深色边框 + 1px 同色外圈（对齐参考稿 .composer:focus-within） */
+.t-composer:hover {
+  border-color: var(--ds-text-quaternary);
+}
+.t-composer:focus-within {
+  border-color: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+}
+/* 聚焦不画 ring（CP-1）：框色变化由外层 .t-composer:hover/:focus-within 承担 */
 .t-composer__textarea {
   display: block;
   width: 100%;
@@ -925,8 +935,8 @@ body { overflow: hidden; }
   outline: none;
   resize: none;
   overflow-x: hidden;
-  overflow-y: auto; /* 内容超过 8 行上限后框内纵向滚动，高度本身由 JS 钳制 */
-  max-height: calc(var(--ds-lh-body) * 8 + var(--ds-space-1) * 2); /* 最多 8 行：8*行高 + 上下 padding */
+  overflow-y: auto; /* 内容超过 10 行上限后框内纵向滚动，高度本身由 JS 钳制 */
+  max-height: calc(var(--ds-lh-body) * 10 + var(--ds-space-1) * 2); /* 最多 10 行：10*行高 + 上下 padding */
   background: transparent;
   font-family: inherit;
   font-size: var(--ds-fs-body);
@@ -976,7 +986,7 @@ body { overflow: hidden; }
 }
 .t-composer__model:hover { background: var(--ds-hover-fill); color: var(--ds-text-primary); }
 .t-composer__spacer { flex: 1 1 0; min-width: 0; }
-.t-composer__send { flex: none; background: var(--ds-text-primary); border-color: var(--ds-text-primary); color: var(--ds-on-primary); }
+.t-composer__send { flex: none; width: 32px; min-width: 32px; padding: 0; background: var(--ds-text-primary); border-color: var(--ds-text-primary); color: var(--ds-on-primary); }
 /* 兜底必须置于模型钮常规规则之后（同特异性源序后者胜）：composer ≤240px 收起模型钮 */
 @container (max-width: 240px) {
   .t-composer__model { display: none; }
@@ -1435,14 +1445,14 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
       <div class="t-left-stack">
         <div class="t-brand">
           <span class="t-brand__logo">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           </span>
           <span>__PRODUCT_NAME__</span>
         </div>
 
         <div class="t-new">
-          <button type="button" class="ds-btn ds-btn--block t-new__btn">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-message-plus"></use></svg>
+          <button type="button" class="ds-btn ds-btn--primary ds-btn--block t-new__btn">
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-plus"></use></svg>
             <span class="ds-btn__label">新建会话</span>
           </button>
         </div>
@@ -1450,23 +1460,23 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
         <nav class="t-tools" aria-label="__TOOL_NAV_GROUP_TITLE__">
           <div class="t-tools__title">__TOOL_NAV_GROUP_TITLE__</div>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_1_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_2_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_3_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_4_NAME__</span>
           </button>
           <button type="button" class="t-tools__item">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-sparkles"></use></svg>
             <span>__TOOL_5_NAME__</span>
           </button>
         </nav>
@@ -1604,7 +1614,7 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
     <div class="ds-shell__composer" data-region="composer">
       <div class="t-composer-stage">
         <div class="t-composer">
-          <textarea class="t-composer__textarea" rows="1" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
+          <textarea class="t-composer__textarea" rows="3" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
           <div class="t-composer__bar">
             <!-- CP-25：附件 / @ 等输入能力统一收纳进加号菜单（语音仍常驻） -->
             <button type="button" class="ds-icon-btn t-composer__plus" aria-label="更多输入能力"
@@ -1614,12 +1624,12 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
             <button type="button" class="ds-icon-btn" aria-label="语音输入">
               <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-mic"></use></svg>
             </button>
+            <span class="t-composer__spacer"></span>
             <button type="button" class="t-composer__model">
-              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+              <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-bot"></use></svg>
               <span>__MODEL_NAME__</span>
               <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
             </button>
-            <span class="t-composer__spacer"></span>
             <button type="button" class="ds-btn ds-btn--primary t-composer__send">
               <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-send"></use></svg>
             </button>
@@ -2697,18 +2707,18 @@ button.t-launch-row:hover { background: var(--ds-hover-fill); }
 
 /* ============================================================
    【模板状态演示】输入框高度自适应（参考交互）：
-   默认 1 行；随输入行数逐行增高；最多 8 行，超出后框内纵向滚动
+   默认 3 行；随输入行数逐行增高；最多 10 行，超出后框内纵向滚动
    （CSS max-height + overflow-y:auto 兜底）。
    P9 composer 实物沿用同一几何规则，几何基准：行高 24 + 上下 padding 4。
    ============================================================ */
 (function () {
   var ta = document.querySelector('.t-composer__textarea');
   if (!ta) return;
-  var MAX_LINES = 8;
+  var MIN_LINES = 3, MAX_LINES = 10;
   var cs = window.getComputedStyle(ta);
   var LINE = parseFloat(cs.lineHeight);
   var PAD = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-  var MIN_H = LINE + PAD;
+  var MIN_H = LINE * MIN_LINES + PAD;
   var MAX_H = LINE * MAX_LINES + PAD;
   function resize() {
     ta.style.height = 'auto';

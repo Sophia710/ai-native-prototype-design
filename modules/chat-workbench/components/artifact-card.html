@@ -13,24 +13,22 @@
 <script type="application/json" data-component-spec>
 {
   "id": "artifact-card",
-  "title": "产物文件卡（文档生成行 + 文件卡，点击右栏打开）",
+  "title": "产物文件卡（文档生成行 + 文件卡，点击右栏打开，状态行固定元信息）",
   "region": "stream",
   "anatomy": [
     "root:div.ds-docrow[data-component=artifact-card]",
     "label:span.ds-docrow__label（__GENERATED_DOC_LABEL__，独占一行）",
-    "card:button.ds-artcard[data-id][data-type=md|docx|xlsx|pdf|image|txt|file][data-open]",
+    "card:button.ds-artcard[data-id][data-type=md|docx|xlsx|pdf|image|txt|file]",
     "icon:16 类型图标（file-md/file-sheet/file-pdf/image/file-text/file）",
     "name:.ds-artcard__name（__FILE_NAME__ 或 __ARTIFACT_NAME__，单行省略）",
-    "status:.ds-artcard__status（__ARTIFACT_SYNC_STATUS__；已打开弱态显示「已打开」）"
+    "status:.ds-artcard__status（__ARTIFACT_META__，固定元信息：格式 · 大小 · 创建时间，tabular-nums，点击不变）"
   ],
   "variants": [
-    "md / xlsx / pdf / image / txt 各类型图标",
-    "已打开弱态 data-open=true"
+    "md / xlsx / pdf / image / txt 各类型图标"
   ],
   "states": [
     "hover",
-    "focus-visible",
-    "open-weak"
+    "focus-visible"
   ],
   "tokens": [
     "--ds-space-1",
@@ -54,11 +52,12 @@
     "__FILE_NAME__",
     "__ARTIFACT_NAME__",
     "__ARTIFACT_TYPE__",
-    "__ARTIFACT_SYNC_STATUS__"
+    "__ARTIFACT_META__"
   ],
-  "interaction": "整卡是 button，Enter/Space 与点击等效；点击派发 document 事件 artifact:open {id,name,type}（shell 自动开右栏），并置 data-open=true 弱态。无 a 标签、无 target=_blank、无外链 URL。",
+  "interaction": "整卡是 button，Enter/Space 与点击等效；点击派发 document 事件 artifact:open {id,name,type}（shell 自动开右栏；同一产物已打开时聚焦已有页签）。卡片视觉不随打开状态变化——状态行恒为固定元信息。无 a 标签、无 target=_blank、无外链 URL。",
   "contract_refs": [
     "CS-10",
+    "CS-11",
     "CS-12",
     "CS-20",
     "CS-X6"
@@ -66,7 +65,7 @@
   "forbidden": [
     "使用 a target=_blank 打开",
     "label 与卡片挤在同一行",
-    "已打开卡仍用强态",
+    "点击后把状态行改为「已打开」等动态文案",
     "彩色类型图标"
   ]
 }
@@ -371,16 +370,7 @@ progress {
   font-size: var(--ds-fs-caption);
   line-height: var(--ds-lh-caption);
   color: var(--ds-text-tertiary);
-}
-
-/* 已打开弱态：图标/名称/状态全部降为弱色（CS-12） */
-.ds-artcard[data-open="true"] {
-  box-shadow: none;
-}
-
-.ds-artcard[data-open="true"] .ds-artcard__icon,
-.ds-artcard[data-open="true"] .ds-artcard__name {
-  color: var(--ds-text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 /* ===== [复制区] 组件 CSS 结束：artifact-card ===== */
 
@@ -492,7 +482,7 @@ progress {
 
 <div class="demo-topbar">
   <span class="demo-topbar__title">chat-workbench / artifact-card</span>
-  <span class="demo-topbar__tag">产物文件卡（文档生成行 + 文件卡，点击右栏打开）</span>
+  <span class="demo-topbar__tag">产物文件卡（文档生成行 + 文件卡，点击右栏打开，状态行固定元信息）</span>
   <span class="demo-topbar__spacer"></span>
   <button class="ds-btn ds-btn--ghost" id="demo-theme" type="button">切换浅/深主题</button>
 </div>
@@ -500,7 +490,7 @@ progress {
 <!-- ===== [复制区] 组件 HTML 开始：artifact-card ===== -->
 <div data-demo-section="artifact-card">
   <div class="demo-section">
-    <h3>文档生成行（说明独占一行，文件卡在下一行）与已打开弱态</h3>
+    <h3>文档生成行（说明独占一行，文件卡在下一行；状态行固定元信息）</h3>
     <div class="demo-canvas" style="width:760px">
       <div data-component="artifact-card" class="ds-docrow">
         <span class="ds-docrow__label">__GENERATED_DOC_LABEL__</span>
@@ -508,7 +498,7 @@ progress {
           <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-md"></use></svg>
           <span class="ds-artcard__texts">
             <span class="ds-artcard__name">__FILE_NAME__</span>
-            <span class="ds-artcard__status">__ARTIFACT_SYNC_STATUS__</span>
+            <span class="ds-artcard__status">__ARTIFACT_META__</span>
           </span>
         </button>
       </div>
@@ -516,35 +506,35 @@ progress {
   </div>
 
   <div class="demo-section">
-    <h3>已打开弱态（点击任一卡片后变弱并派发 artifact:open；下方展示各类型图标）</h3>
+    <h3>各类型图标（点击派发 artifact:open；元信息固定不变，无「已打开」态）</h3>
     <div class="demo-canvas" style="width:760px">
       <div style="display:flex;flex-wrap:wrap;gap:var(--ds-space-3)">
         <button type="button" class="ds-artcard" data-id="art-2" data-type="xlsx">
           <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-sheet"></use></svg>
           <span class="ds-artcard__texts">
             <span class="ds-artcard__name">__ARTIFACT_NAME__</span>
-            <span class="ds-artcard__status">__ARTIFACT_SYNC_STATUS__</span>
+            <span class="ds-artcard__status">__ARTIFACT_META__</span>
           </span>
         </button>
         <button type="button" class="ds-artcard" data-id="art-3" data-type="pdf">
           <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-pdf"></use></svg>
           <span class="ds-artcard__texts">
             <span class="ds-artcard__name">__ARTIFACT_NAME__</span>
-            <span class="ds-artcard__status">__ARTIFACT_SYNC_STATUS__</span>
+            <span class="ds-artcard__status">__ARTIFACT_META__</span>
           </span>
         </button>
         <button type="button" class="ds-artcard" data-id="art-4" data-type="image">
           <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-image"></use></svg>
           <span class="ds-artcard__texts">
             <span class="ds-artcard__name">__ARTIFACT_NAME__</span>
-            <span class="ds-artcard__status">__ARTIFACT_SYNC_STATUS__</span>
+            <span class="ds-artcard__status">__ARTIFACT_META__</span>
           </span>
         </button>
         <button type="button" class="ds-artcard" data-id="art-5" data-type="txt">
           <svg class="ds-icon ds-artcard__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-file-text"></use></svg>
           <span class="ds-artcard__texts">
             <span class="ds-artcard__name">__ARTIFACT_NAME__</span>
-            <span class="ds-artcard__status">__ARTIFACT_SYNC_STATUS__</span>
+            <span class="ds-artcard__status">__ARTIFACT_META__</span>
           </span>
         </button>
       </div>
@@ -557,7 +547,7 @@ progress {
 
 
 /* ===== [复制区] 组件 JS 开始：artifact-card ===== */
-/* artifact-card —— 点击整卡派发 artifact:open {id,name,type}，并置已打开弱态（CS-10/CS-12） */
+/* artifact-card —— 点击整卡派发 artifact:open {id,name,type}（CS-10/CS-11）；状态行固定显示元信息，无已打开弱态 */
 (function () {
   'use strict';
 
@@ -569,15 +559,6 @@ progress {
     image: 'image',
     txt: 'file-text'
   };
-
-  function markOpen(card) {
-    card.setAttribute('data-open', 'true');
-    var status = card.querySelector('.ds-artcard__status');
-    if (status && status.getAttribute('data-default') === null) {
-      status.setAttribute('data-default', status.textContent);
-      status.textContent = '已打开';
-    }
-  }
 
   function init(root) {
     if (root.__dsArtCardInit) return;
@@ -595,7 +576,6 @@ progress {
       document.dispatchEvent(new CustomEvent('artifact:open', {
         detail: { id: id, name: name, type: type }
       }));
-      markOpen(card);
     });
   }
 

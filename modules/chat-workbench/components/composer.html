@@ -19,8 +19,8 @@
     "stage:.ds-composer-stage（max 760 居中）",
     "box:.ds-composer[data-component=composer][data-conversation-id]（1px border、radius-input 10、surface-raised、container-type:inline-size）",
     "row:.ds-attach-row（附件，空则 hidden）",
-    "textarea:.ds-composer__textarea（16/24，1–8 行）",
-    "bar:.ds-composer__bar（flex nowrap gap8）：加号 / 语音 / ds-model-switch / spacer / 发送",
+    "textarea:.ds-composer__textarea（16/24，默认 3 行，最多 10 行）",
+    "bar:.ds-composer__bar（flex nowrap gap8）：加号 / 语音 / spacer / ds-model-switch / 发送（模型钮靠右贴发送）",
     "menu:.ds-plus-menu#ds-plus-menu + 5 个 .ds-plus-sub（打开时搬 body fixed）",
     "kernel:input[type=file][hidden]"
   ],
@@ -30,6 +30,8 @@
     "窄宽 @container ≤240 收起模型钮"
   ],
   "states": [
+    "hover(边框转 text-quaternary)",
+    "focus-within(深色边框 + 1px 同色外圈)",
     "empty(disabled send)",
     "has-text",
     "generating",
@@ -48,6 +50,7 @@
     "--ds-on-primary",
     "--ds-text-secondary",
     "--ds-text-tertiary",
+    "--ds-text-quaternary",
     "--ds-border",
     "--ds-divider",
     "--ds-surface-raised",
@@ -93,7 +96,7 @@
     "model-switcher",
     "mention-popover"
   ],
-  "interaction": "DSComposer.forRoot(root)→{setGenerating,setConversation}。CP-3 autosize 1–8 行；CP-4 Enter 发送/Shift+Enter 换行/输入法组词不发送；CP-5/6 空内容禁用发送，发送派发 conversation:submit {text,attachments:{name,type}[]} 并清空；CP-7/8 generating：textarea 只读、加号/语音/模型/@ 禁用、主钮换 i-stop 派发 generation:stop、Enter 不发送；CP-9 草稿 localStorage ds.chat-workbench.draft.{conversationId} 300ms 去抖；CP-11 加号「上传附件」走隐藏 file input；CP-13「添加知识库」关单后在 textarea 插入 @ 唤起提及浮层；CP-25 加号一级+5 二级级联（搬 body/fixed、向上 8、右侧 4 翻转、120ms 悬停宽限、完整键盘、外部/滚动关闭、叶子关闭回焦）；composer:prefill {text,autosubmit}。",
+  "interaction": "DSComposer.forRoot(root)→{setGenerating,setConversation}。CP-3 autosize 默认 3 行、最多 10 行（超出框内滚动）；CP-4 Enter 发送/Shift+Enter 换行/输入法组词不发送；CP-5/6 空内容禁用发送，发送派发 conversation:submit {text,attachments:{name,type}[]} 并清空；CP-7/8 generating：textarea 只读、加号/语音/模型/@ 禁用、主钮换 i-stop 派发 generation:stop、Enter 不发送；CP-9 草稿 localStorage ds.chat-workbench.draft.{conversationId} 300ms 去抖；CP-11 加号「上传附件」走隐藏 file input；CP-13「添加知识库」关单后在 textarea 插入 @ 唤起提及浮层；CP-25 加号一级+5 二级级联（搬 body/fixed、向上 8、右侧 4 翻转、120ms 悬停宽限、完整键盘、外部/滚动关闭、叶子关闭回焦）；composer:prefill {text,autosubmit}。",
   "contract_refs": [
     "CP-1",
     "CP-2",
@@ -109,7 +112,7 @@
     "CP-25"
   ],
   "forbidden": [
-    "聚焦变框色/套 ring",
+    "聚焦套 2px focus ring（仅允许深色边框 + 1px 同色外圈）",
     "工具栏换行",
     "任意宽度横向溢出",
     "空消息可发送",
@@ -804,7 +807,7 @@ progress {
 }
 
 /* ===== [复制区] 依赖组件 CSS：model-switcher（随本组件一并复制） ===== */
-/* model-switcher —— 工具栏中部模型切换触发器（弹层复用 DSPopoverMenu，CP-17） */
+/* model-switcher —— 工具栏右侧模型切换触发器（贴发送钮，弹层复用 DSPopoverMenu，CP-17） */
 .ds-model-switch {
   display: inline-flex;
   align-items: center;
@@ -937,10 +940,22 @@ progress {
   background: var(--ds-surface-raised);
   padding: var(--ds-space-2) var(--ds-space-3);
   container-type: inline-size; /* CP-24：窄宽模型钮收起的容器查询基准 */
+  transition: border-color var(--ds-t-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-t-fast) var(--ds-ease-standard);
 }
 
-/* CP-1：外框常驻；聚焦不变色不套 ring。textarea 始终无 outline/box-shadow，
-   类+伪类 (0,2,0) 显式压过 tokens.css 全局 :focus-visible (0,1,0) */
+/* CP-1：hover 边框转 text-quaternary；聚焦（选中态）边框转深色 + 1px 同色外圈（对齐参考稿 .composer:focus-within） */
+.ds-composer:hover {
+  border-color: var(--ds-text-quaternary);
+}
+
+.ds-composer:focus-within {
+  border-color: var(--ds-text-primary);
+  box-shadow: 0 0 0 1px var(--ds-text-primary);
+}
+
+/* CP-1：框色变化只由外层 .ds-composer:hover/:focus-within 承担；
+   textarea 始终无 outline/box-shadow，类+伪类 (0,2,0) 显式压过 tokens.css 全局 :focus-visible (0,1,0) */
 .ds-composer__textarea {
   display: block;
   width: 100%;
@@ -951,7 +966,7 @@ progress {
   resize: none;
   overflow-x: hidden;
   overflow-y: auto;
-  max-height: calc(var(--ds-lh-body) * 8 + var(--ds-space-1) * 2); /* 最多 8 行 */
+  max-height: calc(var(--ds-lh-body) * 10 + var(--ds-space-1) * 2); /* 最多 10 行 */
   background: transparent;
   font-family: inherit;
   font-size: var(--ds-fs-body);
@@ -981,6 +996,9 @@ progress {
 
 .ds-composer__send {
   flex: none;
+  width: 32px;
+  min-width: 32px;
+  padding: 0; /* 正方形发送钮：32×32 */
   background: var(--ds-text-primary);
   border-color: var(--ds-text-primary);
   color: var(--ds-on-primary);
@@ -1233,7 +1251,7 @@ progress {
     <div class="ds-composer-stage">
       <div class="ds-composer" data-component="composer" data-conversation-id="demo-conversation">
         <div class="ds-attach-row" hidden></div>
-        <textarea class="ds-composer__textarea" rows="1" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
+        <textarea class="ds-composer__textarea" rows="3" placeholder="__COMPOSER_PLACEHOLDER__"></textarea>
         <div class="ds-composer__bar">
           <button type="button" class="ds-icon-btn ds-composer__plus" aria-label="更多输入能力"
             aria-haspopup="menu" aria-expanded="false" aria-controls="ds-plus-menu">
@@ -1242,9 +1260,10 @@ progress {
           <button type="button" class="ds-icon-btn ds-voice ds-composer__voice" data-transcript="__VOICE_TRANSCRIPT_SAMPLE__" aria-label="语音输入">
             <svg class="ds-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-mic"></use></svg>
           </button>
+          <span class="ds-composer__spacer" aria-hidden="true"></span>
           <button type="button" class="ds-model-switch" data-component="model-switcher"
             aria-haspopup="listbox" aria-expanded="false">
-            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+            <svg class="ds-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-bot"></use></svg>
             <span class="ds-model-switch__name">__MODEL_NAME__</span>
             <svg class="ds-icon ds-model-switch__caret" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
           </button>
@@ -1255,7 +1274,6 @@ progress {
               { "name": "__MODEL_3_NAME__", "desc": "__MODEL_3_DESC__" }
             ]
           </script>
-          <span class="ds-composer__spacer" aria-hidden="true"></span>
           <button type="button" class="ds-btn ds-btn--primary ds-composer__send" disabled aria-label="发送">
             <svg class="ds-icon ds-composer__send-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><use href="#i-send"></use></svg>
           </button>
@@ -2150,7 +2168,7 @@ progress {
 
   var DRAFT_PREFIX = 'ds.chat-workbench.draft.';
   var MENU_GAP = 8, SUB_GAP = 4, EDGE = 8, HOVER_DELAY = 120;
-  var MAX_LINES = 8;
+  var MIN_LINES = 3, MAX_LINES = 10;
 
   function forRoot(root) {
     if (!root || root.__dsComposerApi) return root && root.__dsComposerApi;
@@ -2168,11 +2186,11 @@ progress {
     var composing = false;
     var draftTimer = null;
 
-    /* ---------- autosize（CP-3：1–8 行，超出框内滚动） ---------- */
+    /* ---------- autosize（CP-3：默认 3 行，最多 10 行，超出框内滚动） ---------- */
     var lineH = parseFloat(getComputedStyle(ta).lineHeight);
     var padV = parseFloat(getComputedStyle(ta).paddingTop) +
                parseFloat(getComputedStyle(ta).paddingBottom);
-    var minH = lineH + padV;
+    var minH = lineH * MIN_LINES + padV;
     var maxH = lineH * MAX_LINES + padV;
     function autosize() {
       ta.style.height = 'auto';
