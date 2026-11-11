@@ -6867,15 +6867,24 @@ __AI_RESPONSE_HTML_1__
       toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
     });
     refreshCount(root);
-    /* data-state 由外部脚本驱动（如流式回放）时，计数随 DOM 变化自动重算 */
+    /* data-state 由外部脚本驱动（如流式回放）时，计数随 DOM 变化自动重算。
+       回调内的写入落在被监听的子树里，必须先断开再写、写完重连，
+       避免自身写入被再次捕获形成自触发死循环。 */
     if (typeof MutationObserver === 'function') {
-      var mo = new MutationObserver(function () { refreshCount(root); });
-      mo.observe(root, {
-        subtree: true,
-        childList: true,
-        attributes: true,
-        attributeFilter: ['data-state']
+      var observe = function () {
+        mo.observe(root, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: ['data-state']
+        });
+      };
+      var mo = new MutationObserver(function () {
+        mo.disconnect();
+        refreshCount(root);
+        observe();
       });
+      observe();
     }
   }
 
